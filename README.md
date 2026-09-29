@@ -1,5 +1,7 @@
 # Triangle Watch
 
+![CI](https://github.com/tomosjohnrees/triangle-watch/actions/workflows/ci.yml/badge.svg)
+
 A local, read-only scanner for Binance USDT spot coins approaching the decision
 point of a descending triangle while the **monthly MACD histogram has recently
 turned positive**. It also labels shorter flat-base breakouts separately. An
