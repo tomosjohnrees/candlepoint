@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Triangle Watch</title>
+  <style>
+    :root { color-scheme: dark; font-family: Inter, ui-sans-serif, system-ui, sans-serif; background:#0b1018; color:#e9f0f4 }
+    * { box-sizing:border-box } body { margin:0; min-height:100vh }
+    header { padding:28px clamp(20px,5vw,72px); border-bottom:1px solid #26323d; display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; gap:16px }
+    h1 { font-size:28px; letter-spacing:-.04em; margin:0 } header p { color:#94a7b5; margin:6px 0 0; font-size:14px }
+    button { background:#18342d; color:#a9f4cc; border:1px solid #31604c; border-radius:9px; padding:10px 14px; font:inherit; cursor:pointer }
+    button:hover { background:#22513e } button:disabled { opacity:.5; cursor:default }
+    .controls { display:flex; gap:10px; flex-wrap:wrap }
+    main { max-width:1500px; margin:auto; padding:24px clamp(20px,5vw,72px) 70px }
+    .status { background:#121b25; border:1px solid #26323d; border-radius:12px; padding:14px 18px; color:#b4c4cf; font-size:14px; display:flex; flex-wrap:wrap; gap:18px; align-items:center }
+    .status strong { color:#e9f0f4 } .error { color:#ffad9b }
+    .tabs { display:flex; gap:8px; margin:28px 0 18px; flex-wrap:wrap }
+    .tabs button { background:#121b25; border-color:#26323d; color:#aebfcc }
+    .tabs button.active { background:#184335; border-color:#3f9271; color:#d5ffe8 }
+    #cards { display:grid; grid-template-columns:repeat(auto-fill,minmax(310px,1fr)); gap:16px }
+    article { background:#121b25; border:1px solid #273644; border-radius:14px; padding:18px; min-width:0 }
+    .head { display:flex; align-items:start; justify-content:space-between; gap:10px }
+    h2 { font-size:19px; margin:0; letter-spacing:-.02em } .score { color:#bff5d6; font-weight:700 }
+    .badge { display:inline-block; margin-top:7px; padding:4px 8px; border-radius:5px; background:#263744; color:#d3e3ee; font-size:11px; text-transform:uppercase; letter-spacing:.08em }
+    .badge.breaking { background:#244939; color:#b9f4ce }
+    .badge.watch { background:#493e28; color:#ffe1a0 }
+    .provisional { color:#f8c884; font-size:12px; margin:10px 0 0 }
+    canvas { display:block; width:100%; height:170px; margin:18px 0; background:#0d151e; border-radius:7px }
+    dl { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin:0 }
+    dt { color:#8fa2b0; font-size:12px } dd { margin:4px 0 0; font-variant-numeric:tabular-nums; font-size:15px }
+    .reason { color:#b3c1ca; line-height:1.5; font-size:13px; margin:16px 0 }
+    a { color:#8fd9ff; text-decoration:none } a:hover { text-decoration:underline }
+    .empty { color:#9aadb9; padding:35px 0 } .note { color:#8295a3; line-height:1.5; font-size:13px; margin-top:24px; max-width:850px }
+  </style>
+</head>
+<body>
+  <header>
+    <div><h1>Triangle Watch</h1><p>Monthly descending triangles · Binance USDT spot · MACD 12/26/9</p></div>
+    <div class="controls"><button id="notify">Enable browser alerts</button><button id="scan">Scan now</button></div>
+  </header>
+  <main>
+    <div class="status" id="status">Starting…</div>
+    <div class="tabs">
+      <button data-filter="all" class="active">All matches</button>
+      <button data-filter="near breakout">Near breakout</button>
+      <button data-filter="breaking out">Breaking out</button>
+      <button data-filter="watchlist">Early MACD watchlist</button>
+    </div>
+    <section id="cards" aria-live="polite"></section>
+    <p class="note">Triangle matches and the early MACD watchlist are separate. Watchlist coins have a negative monthly MACD histogram rising toward zero; they need not form a triangle and are not breakout alerts. Neither list is a buy recommendation. The fit score ranks triangle shape similarity, not profit probability. An open monthly candle and its MACD value can change before month close.</p>
+  </main>
+  <script>
+    const cards = document.querySelector('#cards');
+    const status = document.querySelector('#status');
+    const scanButton = document.querySelector('#scan');
+    const notifyButton = document.querySelector('#notify');
+    let filter = 'all', firstLoad = true, previousIds = new Set();
+    function number(value) { return Number(value).toLocaleString(undefined, {maximumSignificantDigits: 5}); }
+    function el(tag, className, content) {
+      const node = document.createElement(tag);
+      if (className) node.className = className;
+      if (content !== undefined) node.textContent = content;
+      return node;
+    }
+    function plot(canvas, match) {
+      const ratio = devicePixelRatio || 1, width = canvas.clientWidth, height = canvas.clientHeight;
+      canvas.width = width * ratio; canvas.height = height * ratio;
+      const ctx = canvas.getContext('2d'); ctx.scale(ratio, ratio);
+      const bars = match.candles, logs = bars.flatMap(b => [Math.log(b.h), Math.log(b.l)]);
+      const lo = Math.min(...logs, ...(match.support ? [Math.log(match.support)] : [])), hi = Math.max(...logs), span = hi - lo || 1;
+      const x = i => 10 + i / Math.max(1, bars.length - 1) * (width - 20);
+      const y = price => height - 12 - (Math.log(price) - lo) / span * (height - 24);
+      if (match.support) {
+        ctx.setLineDash([4, 4]); ctx.strokeStyle = '#6595a5'; ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(10, y(match.support)); ctx.lineTo(width - 10, y(match.support)); ctx.stroke();
+        ctx.setLineDash([]);
+      }
+      bars.forEach((b, i) => {
+        ctx.strokeStyle = b.c >= b.o ? '#55d2a2' : '#ec6d77';
+        ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(x(i), y(b.h)); ctx.lineTo(x(i), y(b.l)); ctx.stroke();
+        ctx.lineWidth = Math.max(2, Math.min(5, (width - 20) / bars.length * .65));
+        ctx.beginPath(); ctx.moveTo(x(i), y(b.o)); ctx.lineTo(x(i), y(b.c)); ctx.stroke();
+      });
+      if (match.resistance) {
+        ctx.strokeStyle = '#48a7ff'; ctx.lineWidth = 2; ctx.beginPath();
+        ctx.moveTo(x(match.trend_start_index), y(match.trend_start_price));
+        ctx.lineTo(x(bars.length - 1), y(match.resistance)); ctx.stroke();
+      }
+    }
+    function card(match) {
+      const watch = !match.stage;
+      const article = el('article');
+      const head = el('div', 'head'), left = el('div');
+      left.append(el('h2', '', match.symbol), el('span', 'badge ' + (watch ? 'watch' : match.stage === 'breaking out' ? 'breaking' : ''), watch ? 'MACD approaching zero' : match.stage));
+      head.append(left);
+      if (!watch) head.append(el('div', 'score', match.score.toFixed(1) + ' / 100'));
+      article.append(head);
+      if (match.provisional) article.append(el('p', 'provisional', 'Provisional: current monthly candle is still open'));
+      if (match.stage === 'breaking out' && match.distance_to_resistance_pct < -25)
+        article.append(el('p', 'provisional', 'Extended move: already ' + Math.abs(match.distance_to_resistance_pct).toFixed(1) + '% above the triangle line'));
+      const chart = el('canvas'); chart.setAttribute('aria-label', 'Monthly price history'); article.append(chart);
+      const dl = el('dl');
+      const metrics = watch ? [
+        ['Price', number(match.price)], ['Monthly MACD histogram', number(match.macd_histogram)],
+        ['Prior histogram', number(match.prior_macd_histogram)],
+        ['Closer to zero in 2 months', match.improvement_pct.toFixed(0) + '%'],
+        ['Gap at recent pace', match.months_to_zero_at_recent_pace.toFixed(1) + ' months']
+      ] : [
+        ['Price', number(match.price)], ['Support', number(match.support)],
+        ['Upper boundary', number(match.resistance)],
+        ['Distance to boundary', match.distance_to_resistance_pct.toFixed(1) + '%'],
+        ['Support tests', String(match.support_touches)], ['Estimated apex', match.months_to_apex.toFixed(1) + ' months']
+      ];
+      for (const [label, value] of metrics) {
+        const group = el('div'); group.append(el('dt', '', label), el('dd', '', value)); dl.append(group);
+      }
+      article.append(dl, el('p', 'reason', match.reason));
+      const link = el('a', '', 'Inspect Binance chart ↗');
+      link.href = 'https://www.binance.com/en/trade/' + encodeURIComponent(match.symbol.replace(/USDT$/, '_USDT')) + '?type=spot';
+      link.target = '_blank'; link.rel = 'noopener noreferrer'; article.append(link);
+      requestAnimationFrame(() => plot(chart, match));
+      return article;
+    }
+    function render(data) {
+      status.replaceChildren();
+      const watchlist = data.watchlist || [];
+      status.append(el('strong', '', data.status), el('span', '', data.scanned + ' / ' + data.universe + ' coins scanned'),
+        el('span', '', data.matches.length + ' triangle matches'),
+        el('span', '', watchlist.length + ' early MACD'),
+        el('span', '', data.updated_at ? 'Last complete scan: ' + new Date(data.updated_at).toLocaleString() : 'No completed scan yet'));
+      if (data.last_error) status.append(el('span', 'error', data.last_error));
+      scanButton.disabled = data.status === 'Scanning';
+      const matches = filter === 'watchlist' ? watchlist : data.matches.filter(m => filter === 'all' || m.stage === filter);
+      cards.replaceChildren(...matches.map(card));
+      if (!matches.length) cards.append(el('p', 'empty', data.status === 'Scanning' ? 'Scanning markets…' : 'No matches for this view.'));
+      const allEntries = data.matches.concat(watchlist);
+      const identity = m => m.symbol + ':' + m.month + ':' + (m.stage || 'early MACD');
+      const ids = new Set(allEntries.map(identity));
+      if (!firstLoad && 'Notification' in window && Notification.permission === 'granted') {
+        for (const match of allEntries) {
+          const id = identity(match);
+          if (!previousIds.has(id)) new Notification(match.symbol + ' · ' + (match.stage || 'early MACD watchlist'), {body: match.reason});
+        }
+      }
+      previousIds = ids; firstLoad = false;
+    }
+    async function refresh() {
+      try { const response = await fetch('/api/state'); render(await response.json()); }
+      catch (error) { status.textContent = 'Cannot reach the scanner: ' + error.message; }
+    }
+    scanButton.onclick = async () => { scanButton.disabled = true; await fetch('/api/scan', {method:'POST'}); await refresh(); };
+    notifyButton.onclick = async () => { if (!('Notification' in window)) return; await Notification.requestPermission(); notifyButton.textContent = Notification.permission === 'granted' ? 'Browser alerts enabled' : 'Enable browser alerts'; };
+    document.querySelectorAll('[data-filter]').forEach(button => button.onclick = () => {
+      filter = button.dataset.filter;
+      document.querySelectorAll('[data-filter]').forEach(b => b.classList.toggle('active', b === button));
+      refresh();
+    });
+    if ('Notification' in window && Notification.permission === 'granted') notifyButton.textContent = 'Browser alerts enabled';
+    refresh(); setInterval(refresh, 15000);
+  </script>
+</body>
+</html>
