@@ -3,7 +3,7 @@ import unittest
 from dataclasses import replace
 from pathlib import Path
 
-from triangle_scanner import Candle, detect, detect_macd_watch
+from triangle_scanner import Candle, detect, detect_macd_watch, detect_short_base_breakout
 
 
 FIXTURE = Path(__file__).parent / "fixtures" / "near_monthly_through_2026_08.json"
@@ -59,6 +59,23 @@ class TriangleScannerTests(unittest.TestCase):
                                  now_ms=candles[-2].close_time + 1))
         self.assertIsNone(detect("PHAUSDT", candles,
                                  now_ms=candles[-1].close_time - 1000))
+
+    def test_pha_is_a_short_base_breakout_without_becoming_a_triangle(self):
+        candles = [Candle(**row) for row in json.loads(FALSE_POSITIVE.read_text())]
+        self.assertIsNone(detect_short_base_breakout("PHAUSDT", candles[:-1],
+                                                     now_ms=candles[-2].close_time + 1))
+        match = detect_short_base_breakout("PHAUSDT", candles,
+                                            now_ms=candles[-1].close_time - 1000)
+        self.assertIsNotNone(match)
+        self.assertEqual(match.stage, "short-base breakout")
+        self.assertGreater(match.price, match.resistance)
+        self.assertTrue(match.provisional)
+        self.assertGreater(match.macd_histogram, 0)
+
+        next_month = Candle(1790812800000, 1793491199999, 0.0714, 0.12,
+                            0.07, 0.11, 1_000_000)
+        self.assertIsNone(detect_short_base_breakout("PHAUSDT", candles + [next_month],
+                                                     now_ms=next_month.close_time - 1000))
 
     def test_fet_is_an_early_macd_watch_but_not_a_triangle_match(self):
         candles = [Candle(**row) for row in json.loads(FET.read_text())]

@@ -12,7 +12,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 from binance_data import active_usdt_symbols, monthly_candles
-from triangle_scanner import detect, detect_macd_watch
+from triangle_scanner import detect, detect_macd_watch, detect_short_base_breakout
 
 
 ROOT = Path(__file__).resolve().parent
@@ -65,7 +65,8 @@ def scan_once() -> None:
                         state["last_error"] = f"{symbol}: {exc}"
                 with lock:
                     state["scanned"] += 1
-        matches.sort(key=lambda item: item["score"], reverse=True)
+        matches.sort(key=lambda item: (item.get("score") is not None,
+                                       item.get("score", 0)), reverse=True)
         watchlist.sort(key=lambda item: item["months_to_zero_at_recent_pace"])
         with lock:
             state.update(status="Ready", updated_at=datetime.now(timezone.utc).isoformat(),
@@ -82,7 +83,7 @@ def scan_once() -> None:
 
 def _scan_symbol(symbol: str):
     candles = monthly_candles(symbol)
-    match = detect(symbol, candles)
+    match = detect(symbol, candles) or detect_short_base_breakout(symbol, candles)
     return match, None if match else detect_macd_watch(symbol, candles)
 
 

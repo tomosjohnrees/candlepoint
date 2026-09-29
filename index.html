@@ -24,6 +24,7 @@
     h2 { font-size:19px; margin:0; letter-spacing:-.02em } .score { color:#bff5d6; font-weight:700 }
     .badge { display:inline-block; margin-top:7px; padding:4px 8px; border-radius:5px; background:#263744; color:#d3e3ee; font-size:11px; text-transform:uppercase; letter-spacing:.08em }
     .badge.breaking { background:#244939; color:#b9f4ce }
+    .badge.base { background:#344065; color:#c9d8ff }
     .badge.watch { background:#493e28; color:#ffe1a0 }
     .provisional { color:#f8c884; font-size:12px; margin:10px 0 0 }
     canvas { display:block; width:100%; height:170px; margin:18px 0; background:#0d151e; border-radius:7px }
@@ -36,7 +37,7 @@
 </head>
 <body>
   <header>
-    <div><h1>Triangle Watch</h1><p>Monthly descending triangles · Binance USDT spot · MACD 12/26/9</p></div>
+    <div><h1>Triangle Watch</h1><p>Monthly triangles and short-base breakouts · Binance USDT spot · MACD 12/26/9</p></div>
     <div class="controls"><button id="notify">Enable browser alerts</button><button id="scan">Scan now</button></div>
   </header>
   <main>
@@ -45,10 +46,11 @@
       <button data-filter="all" class="active">All matches</button>
       <button data-filter="near breakout">Near breakout</button>
       <button data-filter="breaking out">Breaking out</button>
+      <button data-filter="short-base breakout">Short-base breakout</button>
       <button data-filter="watchlist">Early MACD watchlist</button>
     </div>
     <section id="cards" aria-live="polite"></section>
-    <p class="note">Triangle matches and the early MACD watchlist are separate. Watchlist coins have a negative monthly MACD histogram rising toward zero; they need not form a triangle and are not breakout alerts. Neither list is a buy recommendation. The fit score ranks triangle shape similarity, not profit probability. An open monthly candle and its MACD value can change before month close.</p>
+    <p class="note">Triangle matches use a multiyear descending upper line. Short-base breakouts have a shorter flat floor and a monthly close above the prior eight-month high; they are labelled separately. The early MACD watchlist only tracks negative histograms rising toward zero. These are screening results, not buy recommendations. The triangle fit score is not a profit probability. Open monthly candles can change before month close.</p>
   </main>
   <script>
     const cards = document.querySelector('#cards');
@@ -82,7 +84,11 @@
         ctx.lineWidth = Math.max(2, Math.min(5, (width - 20) / bars.length * .65));
         ctx.beginPath(); ctx.moveTo(x(i), y(b.o)); ctx.lineTo(x(i), y(b.c)); ctx.stroke();
       });
-      if (match.resistance) {
+      if (match.stage === 'short-base breakout') {
+        ctx.setLineDash([5, 3]); ctx.strokeStyle = '#889fff'; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.moveTo(10, y(match.resistance)); ctx.lineTo(width - 10, y(match.resistance)); ctx.stroke();
+        ctx.setLineDash([]);
+      } else if (match.resistance) {
         ctx.strokeStyle = '#48a7ff'; ctx.lineWidth = 2; ctx.beginPath();
         ctx.moveTo(x(match.trend_start_index), y(match.trend_start_price));
         ctx.lineTo(x(bars.length - 1), y(match.resistance)); ctx.stroke();
@@ -90,11 +96,12 @@
     }
     function card(match) {
       const watch = !match.stage;
+      const shortBase = match.stage === 'short-base breakout';
       const article = el('article');
       const head = el('div', 'head'), left = el('div');
-      left.append(el('h2', '', match.symbol), el('span', 'badge ' + (watch ? 'watch' : match.stage === 'breaking out' ? 'breaking' : ''), watch ? 'MACD approaching zero' : match.stage));
+      left.append(el('h2', '', match.symbol), el('span', 'badge ' + (watch ? 'watch' : shortBase ? 'base' : match.stage === 'breaking out' ? 'breaking' : ''), watch ? 'MACD approaching zero' : match.stage));
       head.append(left);
-      if (!watch) head.append(el('div', 'score', match.score.toFixed(1) + ' / 100'));
+      if (match.score !== undefined) head.append(el('div', 'score', match.score.toFixed(1) + ' / 100'));
       article.append(head);
       if (match.provisional) article.append(el('p', 'provisional', 'Provisional: current monthly candle is still open'));
       if (match.stage === 'breaking out' && match.distance_to_resistance_pct < -25)
@@ -106,6 +113,11 @@
         ['Prior histogram', number(match.prior_macd_histogram)],
         ['Closer to zero in 2 months', match.improvement_pct.toFixed(0) + '%'],
         ['Gap at recent pace', match.months_to_zero_at_recent_pace.toFixed(1) + ' months']
+      ] : shortBase ? [
+        ['Price', number(match.price)], ['Base floor', number(match.support)],
+        ['Prior 8-month high', number(match.resistance)],
+        ['Above prior high', Math.abs(match.distance_to_resistance_pct).toFixed(1) + '%'],
+        ['Floor tests', String(match.support_touches)], ['Base duration', match.base_months + ' months']
       ] : [
         ['Price', number(match.price)], ['Support', number(match.support)],
         ['Upper boundary', number(match.resistance)],
@@ -126,7 +138,8 @@
       status.replaceChildren();
       const watchlist = data.watchlist || [];
       status.append(el('strong', '', data.status), el('span', '', data.scanned + ' / ' + data.universe + ' coins scanned'),
-        el('span', '', data.matches.length + ' triangle matches'),
+        el('span', '', data.matches.filter(m => m.stage !== 'short-base breakout').length + ' triangle matches'),
+        el('span', '', data.matches.filter(m => m.stage === 'short-base breakout').length + ' short-base breakouts'),
         el('span', '', watchlist.length + ' early MACD'),
         el('span', '', data.updated_at ? 'Last complete scan: ' + new Date(data.updated_at).toLocaleString() : 'No completed scan yet'));
       if (data.last_error) status.append(el('span', 'error', data.last_error));

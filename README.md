@@ -2,9 +2,9 @@
 
 A local, read-only scanner for Binance USDT spot coins approaching the decision
 point of a descending triangle while the **monthly MACD histogram has recently
-turned positive**. A separate early MACD watchlist shows coins whose histogram
-is still negative but is rising toward zero. It uses monthly price and volume
-candles, not screenshots.
+turned positive**. It also labels shorter flat-base breakouts separately. An
+early MACD watchlist shows coins whose histogram is still negative but rising
+toward zero. It uses monthly price and volume candles, not screenshots.
 
 ## Run
 
@@ -39,6 +39,11 @@ MAX_SYMBOLS=100 SCAN_INTERVAL_SECONDS=3600 PORT=8765 python3 app.py
   candle trades at least 1% above it, label that first candle **breaking out**
   even if the move is already large. An open monthly candle is marked
   **provisional**.
+- Label a coin **short-base breakout** when its first monthly close is at
+  least 5% above the preceding eight months' high, after an eight-month floor
+  with at least three tests spanning seven months. Require an earlier high at
+  least twice that base high and a recently positive monthly MACD histogram.
+  This category does **not** imply a multiyear descending triangle.
 - Put a coin in **Early MACD watchlist** when the last three monthly histogram
   readings are negative and each is higher than the preceding reading, the
   latest reading is at least 25% closer to zero than two months earlier, and
@@ -56,4 +61,5 @@ probability of profit.
 The included NEARUSDT August and September 2026 candle snapshots are regression
 examples: August is **near breakout** and September is **breaking out**. The
 FETUSDT September 2026 snapshot is an **early MACD watch** without a triangle
-match. These examples are not a backtest of returns.
+match. The PHAUSDT September snapshot is a **short-base breakout**, not a
+multiyear triangle. These examples are not a backtest of returns.

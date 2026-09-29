@@ -67,6 +67,27 @@ class MacdWatch:
         return asdict(self)
 
 
+@dataclass(frozen=True)
+class BaseBreakout:
+    symbol: str
+    stage: str
+    provisional: bool
+    price: float
+    support: float
+    resistance: float
+    distance_to_resistance_pct: float
+    macd_histogram: float
+    prior_macd_histogram: float
+    support_touches: int
+    base_months: int
+    month: str
+    candles: list[dict[str, float]]
+    reason: str
+
+    def to_dict(self) -> dict:
+        return asdict(self)
+
+
 def ema(values: Sequence[float], period: int) -> list[float]:
     if period < 1 or not values:
         raise ValueError("EMA needs a positive period and nonempty values")
@@ -122,6 +143,61 @@ def detect_macd_watch(symbol: str, candles: Sequence[Candle],
         round(improvement, 1), round(months_to_zero, 1), month,
         [{"o": c.open, "h": c.high, "l": c.low, "c": c.close}
          for c in bars[-36:]], reason,
+    )
+
+
+def detect_short_base_breakout(symbol: str, candles: Sequence[Candle],
+                               now_ms: int | None = None) -> BaseBreakout | None:
+    """First monthly close above an eight-month floor/ceiling after a decline.
+
+    This is deliberately distinct from the multiyear descending-triangle fit.
+    """
+    if now_ms is None:
+        now_ms = int(datetime.now(tz=timezone.utc).timestamp() * 1000)
+    if len(candles) < 36 or any(c.close <= 0 or c.low <= 0 for c in candles):
+        return None
+    bars = sorted(candles, key=lambda c: c.open_time)
+    if len({c.open_time for c in bars}) != len(bars):
+        return None
+    hist = macd_histogram([c.close for c in bars])
+    if hist[-1] <= 0 or not any(h <= 0 for h in hist[-4:-1]):
+        return None
+
+    base = bars[-9:-1]
+    floor_lows = sorted(c.low for c in base)
+    support = median(floor_lows[:3])
+    ceiling = max(c.high for c in base)
+    if ceiling / support > 4.5:
+        return None
+    touches = [i for i, c in enumerate(base)
+               if abs(c.low / support - 1) <= 0.40]
+    if len(touches) < 3 or touches[-1] - touches[0] < 6:
+        return None
+    if max(c.high for c in bars[-36:-9]) < ceiling * 2:
+        return None
+    if max(c.close for c in base[-3:]) >= ceiling * 0.95:
+        return None
+    previous_ceiling = max(c.high for c in bars[-10:-2])
+    if bars[-2].close >= previous_ceiling * 1.05:
+        return None
+
+    current = bars[-1]
+    if current.close < ceiling * 1.05 or current.close > ceiling * 2:
+        return None
+    distance = (ceiling - current.close) / ceiling * 100
+    provisional = current.close_time >= now_ms
+    month = datetime.fromtimestamp(current.open_time / 1000,
+                                   tz=timezone.utc).strftime("%Y-%m")
+    reason = (f"First monthly close {abs(distance):.1f}% above the prior "
+              f"eight-month base high; {len(touches)} floor-zone tests across "
+              f"at least seven months; monthly MACD histogram positive. "
+              f"Short-base breakout, not a multiyear triangle"
+              f"{' (month still open)' if provisional else ''}.")
+    return BaseBreakout(
+        symbol, "short-base breakout", provisional, current.close, support,
+        ceiling, round(distance, 2), hist[-1], hist[-2], len(touches), 8,
+        month, [{"o": c.open, "h": c.high, "l": c.low, "c": c.close}
+                for c in bars[-24:]], reason,
     )
 
 
