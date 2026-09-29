@@ -56,10 +56,11 @@ MAX_SYMBOLS=100 SCAN_INTERVAL_SECONDS=3600 PORT=8765 python3 app.py
   candle trades at least 1% above it, label that first candle **breaking out**
   even if the move is already large. An open monthly candle is marked
   **provisional**.
-- Label a coin **short-base breakout** when its first monthly close is at
+- Label a coin **short-base breakout** when its current monthly price is at
   least 5% above the preceding eight months' high, after an eight-month floor
   with at least three tests spanning seven months. Require an earlier high at
   least twice that base high and a recently positive monthly MACD histogram.
+  The signal is provisional until the monthly candle closes.
   This category does **not** imply a multiyear descending triangle.
 - Put a coin in **Early MACD watchlist** when the last three monthly histogram
   readings are negative and each is higher than the preceding reading, the

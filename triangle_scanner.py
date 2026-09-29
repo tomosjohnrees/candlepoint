@@ -148,7 +148,7 @@ def detect_macd_watch(symbol: str, candles: Sequence[Candle],
 
 def detect_short_base_breakout(symbol: str, candles: Sequence[Candle],
                                now_ms: int | None = None) -> BaseBreakout | None:
-    """First monthly close above an eight-month floor/ceiling after a decline.
+    """First monthly candle above an eight-month floor/ceiling after a decline.
 
     This is deliberately distinct from the multiyear descending-triangle fit.
     """
@@ -188,7 +188,8 @@ def detect_short_base_breakout(symbol: str, candles: Sequence[Candle],
     provisional = current.close_time >= now_ms
     month = datetime.fromtimestamp(current.open_time / 1000,
                                    tz=timezone.utc).strftime("%Y-%m")
-    reason = (f"First monthly close {abs(distance):.1f}% above the prior "
+    price_label = "Current price" if provisional else "First monthly close"
+    reason = (f"{price_label} {abs(distance):.1f}% above the prior "
               f"eight-month base high; {len(touches)} floor-zone tests across "
               f"at least seven months; monthly MACD histogram positive. "
               f"Short-base breakout, not a multiyear triangle"

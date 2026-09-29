@@ -71,6 +71,14 @@ class TriangleScannerTests(unittest.TestCase):
         self.assertGreater(match.price, match.resistance)
         self.assertTrue(match.provisional)
         self.assertGreater(match.macd_histogram, 0)
+        self.assertIn("Current price", match.reason)
+        self.assertNotIn("First monthly close", match.reason)
+
+        closed = detect_short_base_breakout("PHAUSDT", candles,
+                                            now_ms=candles[-1].close_time + 1)
+        self.assertIsNotNone(closed)
+        self.assertFalse(closed.provisional)
+        self.assertIn("First monthly close", closed.reason)
 
         next_month = Candle(1790812800000, 1793491199999, 0.0714, 0.12,
                             0.07, 0.11, 1_000_000)
