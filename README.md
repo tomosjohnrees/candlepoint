@@ -6,6 +6,21 @@ turned positive**. It also labels shorter flat-base breakouts separately. An
 early MACD watchlist shows coins whose histogram is still negative but rising
 toward zero. It uses monthly price and volume candles, not screenshots.
 
+## Screenshots
+
+These show a scan from 30 September 2026. Prices and matches change as the
+monthly candles update.
+
+**Pattern results:** NEAR's triangle breakout appears alongside shorter base
+breakouts, including PHA.
+
+![Pattern results with NEARUSDT, UNIUSDT, PHAUSDT, and RUNEUSDT](docs/screenshots/pattern-results.jpg)
+
+**Early MACD watchlist:** coins whose monthly MACD histogram is still negative
+but rising toward zero.
+
+![Early MACD watchlist with monthly charts and histogram values](docs/screenshots/early-macd-watchlist.jpg)
+
 ## Run
 
 ```sh
