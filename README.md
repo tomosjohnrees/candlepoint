@@ -17,7 +17,7 @@ Candlepoint is a local, read-only market scanner for Binance USDT spot pairs. It
 
 Each result includes a price preview, its current status, and expandable signal details. The scan summary shows how many markets were screened and when the data was updated. Results based on an open candle are marked because they can change before the candle closes.
 
-Use **Search symbol** to narrow results by ticker across the tabs. After the second completed scan, signals absent from the preceding scan get a **New** badge. **New since last scan** shows only those signals. A change from approaching a level to crossing it counts as new; a continuing signal on a later candle does not. The first scan has no earlier scan to compare.
+Focus **Search symbol** to see every ticker with a signal in the current scan, then type to narrow the list or choose one. The search narrows results across the tabs. After the second completed scan, signals absent from the preceding scan get a **New** badge. **New since last scan** shows only those signals. A change from approaching a level to crossing it counts as new; a continuing signal on a later candle does not. The first scan has no earlier scan to compare.
 
 | Monthly key levels | Early MACD watch |
 | --- | --- |

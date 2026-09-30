@@ -59,6 +59,12 @@
     .subfilter select, .chart-range { padding-right:34px; cursor:pointer }
     .subfilter input::placeholder { color:#9aa8aa; font-weight:400 }
     .subfilter select:focus-visible, .subfilter input:focus-visible, .chart-range:focus-visible { outline:3px solid #62b4a0; outline-offset:2px }
+    .symbol-search { position:relative; width:240px }
+    .symbol-options { position:absolute; z-index:5; top:100%; left:0; right:0; max-height:260px; overflow-y:auto; margin-top:4px; padding:4px; background:#fff; border:1px solid #d8e1df; border-radius:8px; box-shadow:0 10px 28px #163b3326 }
+    .symbol-options[hidden] { display:none }
+    .symbol-option { display:block; width:100%; padding:9px 10px; border:0; border-radius:5px; background:#fff; color:#2c444b; text-align:left; font-size:13px; font-weight:600 }
+    .symbol-option:hover, .symbol-option.active { background:#eef6f2; color:#16584c }
+    .symbol-options-empty { margin:0; padding:10px; color:#71838a; font-size:12px }
     .new-filter { display:flex; align-items:center; gap:8px; min-height:38px; color:#415960; font-size:13px; font-weight:600; cursor:pointer }
     .new-filter input { width:16px; height:16px; margin:0; accent-color:#176d5d; cursor:pointer }
     .new-filter:has(input:disabled) { color:#9aa8aa; cursor:default }
@@ -177,9 +183,10 @@
           <option value="Approaching from above">Approaching from above</option>
         </select>
       </div>
-      <div class="subfilter">
+      <div class="subfilter symbol-search" id="symbol-search-field">
         <label for="symbol-search">Search symbol</label>
-        <input id="symbol-search" type="search" placeholder="e.g. NEAR" maxlength="30" autocomplete="off">
+        <input id="symbol-search" type="search" placeholder="Choose or type a symbol" maxlength="30" autocomplete="off" role="combobox" aria-autocomplete="list" aria-haspopup="listbox" aria-controls="symbol-options" aria-expanded="false">
+        <div class="symbol-options" id="symbol-options" role="listbox" aria-label="Available symbols" hidden></div>
       </div>
       <label class="new-filter" title="Signals absent from the previous completed scan"><input id="new-only" type="checkbox" disabled> New since last scan</label>
     </div>
@@ -239,6 +246,8 @@
     const summary = document.querySelector('#summary');
     const resultCount = document.querySelector('#result-count');
     const symbolSearch = document.querySelector('#symbol-search');
+    const symbolSearchField = document.querySelector('#symbol-search-field');
+    const symbolOptions = document.querySelector('#symbol-options');
     const newOnlyToggle = document.querySelector('#new-only');
     const scanButton = document.querySelector('#scan');
     const notifyButton = document.querySelector('#notify');
@@ -330,6 +339,69 @@
       if (className) node.className = className;
       if (content !== undefined) node.textContent = content;
       return node;
+    }
+    let activeSymbolOption = -1;
+    let symbolOptionsSignature = null;
+    function availableSymbols() {
+      if (!latestData) return [];
+      const groups = ['matches', 'watchlist', 'key_levels', 'hourly_extremes'];
+      return [...new Set(groups.flatMap(group => (latestData[group] || [])
+        .filter(item => !newOnlyToggle.checked || item.is_new).map(item => item.symbol)))].sort();
+    }
+    function closeSymbolOptions() {
+      symbolOptions.hidden = true;
+      activeSymbolOption = -1;
+      symbolOptionsSignature = null;
+      symbolSearch.setAttribute('aria-expanded', 'false');
+      symbolSearch.removeAttribute('aria-activedescendant');
+    }
+    function chooseSymbol(symbol) {
+      symbolSearch.value = symbol.replace(/USDT$/, '');
+      symbolSearch.focus();
+      closeSymbolOptions();
+      if (latestData) render(latestData);
+      writeUrl(true);
+    }
+    function updateSymbolOptions() {
+      if (symbolOptions.hidden) return;
+      const query = symbolSearch.value.trim().toUpperCase();
+      const symbols = availableSymbols().filter(symbol => symbol.includes(query));
+      const signature = query + '|' + symbols.join('|');
+      if (signature === symbolOptionsSignature) return;
+      symbolOptionsSignature = signature;
+      activeSymbolOption = -1;
+      symbolSearch.removeAttribute('aria-activedescendant');
+      symbolOptions.replaceChildren(...symbols.map((symbol, index) => {
+        const option = el('button', 'symbol-option', symbol.replace(/USDT$/, '') + ' / USDT');
+        option.type = 'button';
+        option.id = 'symbol-option-' + index;
+        option.dataset.symbol = symbol;
+        option.setAttribute('role', 'option');
+        option.setAttribute('aria-selected', 'false');
+        option.onclick = () => chooseSymbol(symbol);
+        return option;
+      }));
+      if (!symbols.length) symbolOptions.append(el('p', 'symbol-options-empty',
+        latestData ? 'No available symbols match.' : 'Waiting for scan results…'));
+    }
+    function openSymbolOptions() {
+      symbolOptions.hidden = false;
+      symbolOptionsSignature = null;
+      symbolSearch.setAttribute('aria-expanded', 'true');
+      updateSymbolOptions();
+    }
+    function moveSymbolOption(direction) {
+      if (symbolOptions.hidden) openSymbolOptions();
+      const options = [...symbolOptions.querySelectorAll('[role="option"]')];
+      if (!options.length) return;
+      activeSymbolOption = activeSymbolOption < 0 ? (direction > 0 ? 0 : options.length - 1) :
+        (activeSymbolOption + direction + options.length) % options.length;
+      options.forEach((option, index) => {
+        option.classList.toggle('active', index === activeSymbolOption);
+        option.setAttribute('aria-selected', String(index === activeSymbolOption));
+      });
+      symbolSearch.setAttribute('aria-activedescendant', options[activeSymbolOption].id);
+      options[activeSymbolOption].scrollIntoView({block:'nearest'});
     }
     function updateKeyLevelsToggle() {
       keyLevelsToggle.checked = showKeyLevels;
@@ -1004,6 +1076,7 @@
         }
       }
       previousIds = ids; firstLoad = false;
+      updateSymbolOptions();
     }
     function restoreRoute() {
       const route = readRoute();
@@ -1064,7 +1137,29 @@
     });
     for (const select of document.querySelectorAll('.subfilter select'))
       select.onchange = () => { if (latestData) render(latestData); writeUrl(); };
-    symbolSearch.oninput = () => { if (latestData) render(latestData); writeUrl(true); };
+    symbolSearch.onfocus = openSymbolOptions;
+    symbolSearch.onclick = openSymbolOptions;
+    symbolSearch.oninput = () => { if (latestData) render(latestData); else updateSymbolOptions(); writeUrl(true); };
+    symbolSearch.onkeydown = event => {
+      if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+        event.preventDefault();
+        moveSymbolOption(event.key === 'ArrowDown' ? 1 : -1);
+      } else if (event.key === 'Enter' && !symbolOptions.hidden) {
+        event.preventDefault();
+        const option = symbolOptions.querySelectorAll('[role="option"]')[activeSymbolOption];
+        if (option) chooseSymbol(option.dataset.symbol);
+        else closeSymbolOptions();
+      } else if (event.key === 'Escape' && !symbolOptions.hidden) {
+        event.preventDefault();
+        closeSymbolOptions();
+      }
+    };
+    symbolSearchField.addEventListener('focusout', event => {
+      if (!symbolSearchField.contains(event.relatedTarget)) closeSymbolOptions();
+    });
+    document.addEventListener('pointerdown', event => {
+      if (!symbolSearchField.contains(event.target)) closeSymbolOptions();
+    });
     newOnlyToggle.onchange = () => { if (latestData) render(latestData); writeUrl(); };
     document.querySelector('.tabs').addEventListener('keydown', event => {
       if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
