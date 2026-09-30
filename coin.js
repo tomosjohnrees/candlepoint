@@ -11,7 +11,7 @@ const chartSection = document.querySelector('#chart-section');
 const chartRange = document.querySelector('#chart-range');
 const chartCache = new Map();
 let interval = '1M', quote = isBtcPair ? 'BTC' : 'USDT';
-let bars = [], bands = [], macd = [], hover = -1, requestId = 0;
+let bars = [], bands = [], macd = [], hover = -1, requestId = 0, derivedChart = false;
 let chartView = '/patterns', chartInitialized = false;
 
 function node(tag, className, value) {
@@ -101,37 +101,53 @@ function setChartControls() {
     const active = button.dataset.quote === quote;
     button.classList.toggle('active', active); button.setAttribute('aria-pressed', String(active));
   }
-  document.querySelector('#chart-heading').textContent =
-    (quote === 'BTC' ? pair : base + 'USDT') + ' price history';
+  document.querySelector('#chart-heading').textContent = base + ' / ' + quote + ' price history';
   const url = new URL(chartView, location.origin);
   url.searchParams.set('chart', pair);
   url.searchParams.set('interval', interval);
   if (isBtcPair && quote === 'USDT') url.searchParams.set('quote', 'USDT');
-  document.querySelector('#full-chart-link').href = url.pathname + url.search;
+  const fullLink = document.querySelector('#full-chart-link');
+  fullLink.hidden = !isBtcPair && quote === 'BTC';
+  fullLink.href = url.pathname + url.search;
 }
 async function loadChart() {
   const id = ++requestId;
   setChartControls();
-  const chartSymbol = isBtcPair && quote === 'USDT' ? base + 'USDT' : pair;
+  const chartSymbol = base + quote;
   const key = chartSymbol + ':' + interval;
   readout.textContent = 'Loading ' + (quote === 'BTC' ? 'BTC' : 'USD') + ' chart…';
-  bars = []; drawCharts();
+  bars = []; derivedChart = false; drawCharts();
   try {
     if (!chartCache.has(key)) {
       const response = await fetch('/api/chart?symbol=' + encodeURIComponent(chartSymbol) + '&interval=' + interval);
       if (!response.ok) throw new Error('History unavailable');
       const result = await response.json();
       if (!Array.isArray(result.candles) || !result.candles.length) throw new Error('History unavailable');
-      chartCache.set(key, result.candles);
+      chartCache.set(key, result);
     }
     if (id !== requestId) return;
-    bars = chartCache.get(key);
+    const result = chartCache.get(key);
+    bars = result.candles;
+    derivedChart = !!result.derived;
+    priceCanvas.setAttribute('aria-label', derivedChart ?
+      'BTC equivalent close price line chart' : 'Price candlestick chart with Bollinger bands');
+    if (!derivedChart && !isBtcPair && quote === 'BTC') {
+      const fullLink = document.querySelector('#full-chart-link');
+      fullLink.hidden = false;
+      fullLink.href = '/btc-weekly?chart=' + encodeURIComponent(chartSymbol) + '&interval=' + interval;
+    }
+    document.querySelector('#chart-note').textContent = derivedChart ?
+      'BTC equivalent from ' + base + '/USDT ÷ BTC/USDT closes · calculated comparison, not a traded pair' :
+      'Green / red candles · purple Bollinger bands (20, 2) · MACD below';
+    document.querySelector('#chart-heading').textContent = base + ' / ' + quote +
+      (derivedChart ? ' equivalent' : '') + ' price history';
     bands = bollingerBandsForBars(bars);
     macd = macdSeries(bars);
     hover = -1;
     drawCharts();
   } catch (error) {
     if (id !== requestId) return;
+    document.querySelector('#chart-note').textContent = 'Chart history is unavailable.';
     readout.textContent = (quote === 'USDT' ? 'USD (USDT)' : 'BTC') +
       ' chart unavailable for this pair right now.';
     drawCharts();
@@ -198,11 +214,19 @@ function drawCharts() {
     ctx.stroke();
   }
   const bodyWidth = Math.max(1, Math.min(10, (right - left) / visible.length * .65));
-  for (let i = first; i < bars.length; i++) {
-    const bar = bars[i];
-    ctx.strokeStyle = ctx.fillStyle = bar.c >= bar.o ? '#23866e' : '#c26b62';
-    ctx.beginPath(); ctx.moveTo(x(i), y(bar.h)); ctx.lineTo(x(i), y(bar.l)); ctx.stroke();
-    ctx.fillRect(x(i) - bodyWidth / 2, Math.min(y(bar.o), y(bar.c)), bodyWidth, Math.max(1, Math.abs(y(bar.o) - y(bar.c))));
+  if (derivedChart) {
+    ctx.beginPath(); ctx.strokeStyle = '#176d60'; ctx.lineWidth = 2;
+    for (let i = first; i < bars.length; i++) {
+      if (i === first) ctx.moveTo(x(i), y(bars[i].c)); else ctx.lineTo(x(i), y(bars[i].c));
+    }
+    ctx.stroke();
+  } else {
+    for (let i = first; i < bars.length; i++) {
+      const bar = bars[i];
+      ctx.strokeStyle = ctx.fillStyle = bar.c >= bar.o ? '#23866e' : '#c26b62';
+      ctx.beginPath(); ctx.moveTo(x(i), y(bar.h)); ctx.lineTo(x(i), y(bar.l)); ctx.stroke();
+      ctx.fillRect(x(i) - bodyWidth / 2, Math.min(y(bar.o), y(bar.c)), bodyWidth, Math.max(1, Math.abs(y(bar.o) - y(bar.c))));
+    }
   }
   for (let tick = 0; tick < 5; tick++) {
     const i = Math.min(bars.length - 1, first + Math.round(tick * (visible.length - 1) / 4));
@@ -242,7 +266,8 @@ function drawCharts() {
   const selected = hover >= first && hover < bars.length ? hover : bars.length - 1;
   const bar = bars[selected], band = bands[selected], currentMacd = macd[selected];
   readout.replaceChildren(
-    node('span', '', new Date(bar.t).toLocaleDateString() + ' · O ' + num(bar.o) + '  H ' + num(bar.h) + '  L ' + num(bar.l) + '  C ' + num(bar.c)),
+    node('span', '', new Date(bar.t).toLocaleDateString() + (derivedChart ? ' · BTC equivalent ' + num(bar.c) :
+      ' · O ' + num(bar.o) + '  H ' + num(bar.h) + '  L ' + num(bar.l) + '  C ' + num(bar.c))),
     node('span', '', band ? 'BB upper ' + num(band.upper) + ' · lower ' + num(band.lower) : 'BB needs 20 candles'),
     node('span', '', currentMacd ? 'MACD ' + num(currentMacd.line) + ' · histogram ' + num(currentMacd.histogram) : 'MACD needs 36 candles')
   );
@@ -294,7 +319,8 @@ async function refresh() {
         chartView = ({matches:'/patterns', watchlist:'/macd-watch', key_levels:'/key-levels',
           hourly_extremes:'/hourly-extremes', btc_weekly:'/btc-weekly'})[firstGroup];
         interval = firstGroup === 'btc_weekly' ? '1w' : firstGroup === 'hourly_extremes' ? '1h' : '1M';
-        document.querySelector('#quote-options').hidden = !isBtcPair;
+        document.querySelector('#quote-options').hidden = false;
+        if (!isBtcPair) document.querySelector('[data-quote="BTC"]').textContent = 'BTC equivalent';
         chartInitialized = true;
         loadChart();
       }

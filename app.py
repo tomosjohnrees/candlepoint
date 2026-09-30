@@ -162,6 +162,11 @@ def _scan_btc_symbol(symbol: str):
     return detect_weekly_btc(symbol, weekly_candles(symbol))
 
 
+def chart_history(symbol: str, interval: str):
+    return (historical_candles(symbol, interval, max_bars=1000) if interval == "1h"
+            else historical_candles(symbol, interval))
+
+
 def scan_forever() -> None:
     while True:
         scan_once()
@@ -209,18 +214,38 @@ class Handler(BaseHTTPRequestHandler):
                     btc_pair = symbol[:-4] + "BTC"
                     available = any(item["symbol"] == btc_pair
                                     for item in state.get("btc_weekly", []))
-            if not available:
+                derived_from = None
+                if not available and symbol.endswith("BTC"):
+                    usdt_pair = symbol[:-3] + "USDT"
+                    if any(item["symbol"] == usdt_pair
+                           for group in RESULT_GROUPS for item in state.get(group, [])):
+                        derived_from = usdt_pair
+            if not available and not derived_from:
                 self.send_error(404, "Chart unavailable")
                 return
             try:
-                candles = historical_candles(symbol, interval, max_bars=1000) if interval == "1h" else historical_candles(symbol, interval)
+                if derived_from:
+                    coin_candles = chart_history(derived_from, interval)
+                    btc_candles = {bar.open_time: bar for bar in chart_history("BTCUSDT", interval)}
+                    candles = []
+                    for bar in coin_candles:
+                        btc = btc_candles.get(bar.open_time)
+                        if btc and btc.close > 0:
+                            relative_close = bar.close / btc.close
+                            candles.append({"t": bar.open_time, "o": relative_close,
+                                            "h": relative_close, "l": relative_close,
+                                            "c": relative_close})
+                    if not candles:
+                        raise ValueError("No matching BTC and USDT candles")
+                else:
+                    candles = [{"t": bar.open_time, "o": bar.open, "h": bar.high,
+                                "l": bar.low, "c": bar.close} for bar in chart_history(symbol, interval)]
             except Exception:
                 self.send_error(502, "Could not load chart history")
                 return
             payload = json.dumps({
-                "symbol": symbol, "interval": interval,
-                "candles": [{"t": bar.open_time, "o": bar.open, "h": bar.high,
-                             "l": bar.low, "c": bar.close} for bar in candles],
+                "symbol": symbol, "interval": interval, "derived": bool(derived_from),
+                "candles": candles,
             }).encode()
             self.send_response(200)
             self.send_header("Content-Type", "application/json; charset=utf-8")

@@ -49,7 +49,7 @@ class ChartRouteTests(unittest.TestCase):
         fetch.assert_called_once_with("NEARUSDT", "1M")
         handler.send_response.assert_called_once_with(200)
         result = json.loads(handler.wfile.getvalue())
-        self.assertEqual(result, {"symbol": "NEARUSDT", "interval": "1M", "candles": [
+        self.assertEqual(result, {"symbol": "NEARUSDT", "interval": "1M", "derived": False, "candles": [
             {"t": candle.open_time, "o": 2, "h": 3, "l": 1, "c": 2.5}]})
 
     def test_unknown_symbol_is_rejected_without_fetching(self):
@@ -87,6 +87,28 @@ class ChartRouteTests(unittest.TestCase):
             handler = self.request("symbol=ETHUSDT&interval=1w")
         fetch.assert_called_once_with("ETHUSDT", "1w")
         handler.send_response.assert_called_once_with(200)
+
+    def test_usdt_result_can_open_current_btc_equivalent_chart(self):
+        near = Candle(1_700_000_000_000, 1_700_100_000_000, 4, 5, 3, 4.5, 100)
+        btc = Candle(near.open_time, near.close_time, 45000, 46000, 44000, 45000, 100)
+        unrelated = Candle(near.open_time - 604800000, near.close_time - 604800000,
+                           40000, 41000, 39000, 40000, 100)
+        with patch.object(app, "historical_candles", side_effect=[[near], [unrelated, btc]]) as fetch:
+            handler = self.request("symbol=NEARBTC&interval=1w")
+        self.assertEqual(fetch.call_count, 2)
+        self.assertEqual([call.args for call in fetch.call_args_list],
+                         [("NEARUSDT", "1w"), ("BTCUSDT", "1w")])
+        data = json.loads(handler.wfile.getvalue())
+        self.assertTrue(data["derived"])
+        self.assertEqual(data["symbol"], "NEARBTC")
+        self.assertEqual(data["candles"], [{"t": near.open_time, "o": .0001,
+                                             "h": .0001, "l": .0001, "c": .0001}])
+
+    def test_btc_equivalent_requires_an_active_usdt_result(self):
+        with patch.object(app, "historical_candles") as fetch:
+            handler = self.request("symbol=OTHERBTC&interval=1w")
+        handler.send_error.assert_called_once_with(404, "Chart unavailable")
+        fetch.assert_not_called()
 
     def test_unrelated_usdt_chart_remains_unavailable(self):
         with patch.object(app, "historical_candles") as fetch:

@@ -86,7 +86,7 @@
       <div class="section-head"><h2 id="chart-heading">Price history</h2><div class="chart-tools"><div class="intervals" id="quote-options" role="group" aria-label="Chart currency" hidden><button type="button" data-quote="BTC">BTC</button><button type="button" data-quote="USDT">USD (USDT)</button></div><div class="intervals" role="group" aria-label="Candle timeframe"><button type="button" data-interval="1h">1 hour</button><button type="button" data-interval="1d">Daily</button><button type="button" data-interval="1w">Weekly</button><button type="button" data-interval="1M">Monthly</button></div><label for="chart-range">Show <select id="chart-range"><option value="80">Latest 80 candles</option><option value="all">Full history</option></select></label></div></div>
       <div class="readout" id="readout" aria-live="polite"></div>
       <div class="chart-area"><div class="chart-pane price-pane"><canvas id="price-chart" aria-label="Price candlestick chart with Bollinger bands"></canvas></div><div class="chart-pane macd-pane"><canvas id="macd-chart" aria-label="MACD line, signal and histogram"></canvas></div></div>
-      <div class="chart-foot"><span>Green / red candles · purple Bollinger bands (20, 2) · MACD below</span><a id="full-chart-link" href="/">Open full chart ↗</a></div>
+      <div class="chart-foot"><span id="chart-note">Green / red candles · purple Bollinger bands (20, 2) · MACD below</span><a id="full-chart-link" href="/">Open full chart ↗</a></div>
     </section>
     <div class="signals-head"><h2>Current signals</h2><span id="signal-count"></span></div>
     <div id="signals"></div>
