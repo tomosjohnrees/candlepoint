@@ -37,12 +37,12 @@ def _get(path: str, params: dict | None = None):
             time.sleep(2 ** attempt)
 
 
-def active_usdt_symbols(limit: int = 1000, min_daily_quote_volume: float = 1_000_000) -> list[str]:
+def _active_spot_symbols(quote_asset: str, limit: int, min_daily_quote_volume: float) -> list[str]:
     exchange = _get("/api/v3/exchangeInfo")
     active = {
         entry["symbol"] for entry in exchange["symbols"]
         if entry.get("status") == "TRADING"
-        and entry.get("quoteAsset") == "USDT"
+        and entry.get("quoteAsset") == quote_asset
         and entry.get("isSpotTradingAllowed", True)
         and entry.get("baseAsset") not in EXCLUDED_BASES
     }
@@ -55,6 +55,14 @@ def active_usdt_symbols(limit: int = 1000, min_daily_quote_volume: float = 1_000
     return [symbol for symbol, volume in ranked if volume >= min_daily_quote_volume][:limit]
 
 
+def active_usdt_symbols(limit: int = 1000, min_daily_quote_volume: float = 1_000_000) -> list[str]:
+    return _active_spot_symbols("USDT", limit, min_daily_quote_volume)
+
+
+def active_btc_symbols(limit: int = 1000, min_daily_quote_volume: float = 10) -> list[str]:
+    return _active_spot_symbols("BTC", limit, min_daily_quote_volume)
+
+
 def monthly_candles(symbol: str, limit: int = 100) -> list[Candle]:
     rows = _get("/api/v3/klines", {"symbol": symbol, "interval": "1M", "limit": limit})
     return _parse_candles(rows)
@@ -62,6 +70,11 @@ def monthly_candles(symbol: str, limit: int = 100) -> list[Candle]:
 
 def hourly_candles(symbol: str, limit: int = 300) -> list[Candle]:
     rows = _get("/api/v3/klines", {"symbol": symbol, "interval": "1h", "limit": limit})
+    return _parse_candles(rows)
+
+
+def weekly_candles(symbol: str, limit: int = 100) -> list[Candle]:
+    rows = _get("/api/v3/klines", {"symbol": symbol, "interval": "1w", "limit": limit})
     return _parse_candles(rows)
 
 
