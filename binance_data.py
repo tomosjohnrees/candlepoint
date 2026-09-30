@@ -57,8 +57,39 @@ def active_usdt_symbols(limit: int = 1000, min_daily_quote_volume: float = 1_000
 
 def monthly_candles(symbol: str, limit: int = 100) -> list[Candle]:
     rows = _get("/api/v3/klines", {"symbol": symbol, "interval": "1M", "limit": limit})
+    return _parse_candles(rows)
+
+
+def _parse_candles(rows: list) -> list[Candle]:
     return [Candle(
         open_time=int(row[0]), open=float(row[1]), high=float(row[2]),
         low=float(row[3]), close=float(row[4]), close_time=int(row[6]),
         quote_volume=float(row[7]),
     ) for row in rows]
+
+
+def historical_candles(symbol: str, interval: str, max_bars: int = 5000) -> list[Candle]:
+    """Fetch chart history, paging backward past Binance's 1,000-bar limit."""
+    if interval not in {"1d", "1w", "1M"}:
+        raise ValueError("Unsupported candle interval")
+    if max_bars < 1:
+        raise ValueError("max_bars must be positive")
+    batches: list[list[Candle]] = []
+    total = 0
+    end_time = None
+    while total < max_bars:
+        limit = min(1000, max_bars - total)
+        params = {"symbol": symbol, "interval": interval, "limit": limit}
+        if end_time is not None:
+            params["endTime"] = end_time
+        candles = _parse_candles(_get("/api/v3/klines", params))
+        if not candles:
+            break
+        if end_time is not None and candles[-1].open_time > end_time:
+            raise ValueError("Overlapping candle history")
+        batches.append(candles)
+        total += len(candles)
+        if len(candles) < limit:
+            break
+        end_time = candles[0].open_time - 1
+    return [candle for batch in reversed(batches) for candle in batch]

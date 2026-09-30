@@ -12,7 +12,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlsplit
 
-from binance_data import active_usdt_symbols, monthly_candles
+from binance_data import active_usdt_symbols, historical_candles, monthly_candles
 from triangle_scanner import detect, detect_macd_watch, detect_short_base_breakout
 
 
@@ -103,8 +103,14 @@ class Handler(BaseHTTPRequestHandler):
             self.send_response(200)
             self.send_header("Content-Type", "application/json; charset=utf-8")
         elif request.path == "/api/chart":
-            symbols = parse_qs(request.query).get("symbol", [])
+            query = parse_qs(request.query)
+            symbols = query.get("symbol", [])
             symbol = symbols[0] if len(symbols) == 1 else ""
+            intervals = query.get("interval", ["1M"])
+            interval = intervals[0] if len(intervals) == 1 else ""
+            if interval not in {"1d", "1w", "1M"}:
+                self.send_error(400, "Unsupported candle interval")
+                return
             with lock:
                 available = any(item["symbol"] == symbol for group in ("matches", "watchlist")
                                 for item in state[group])
@@ -112,12 +118,12 @@ class Handler(BaseHTTPRequestHandler):
                 self.send_error(404, "Chart unavailable")
                 return
             try:
-                candles = monthly_candles(symbol, limit=1000)
+                candles = historical_candles(symbol, interval)
             except Exception:
                 self.send_error(502, "Could not load chart history")
                 return
             payload = json.dumps({
-                "symbol": symbol,
+                "symbol": symbol, "interval": interval,
                 "candles": [{"t": bar.open_time, "o": bar.open, "h": bar.high,
                              "l": bar.low, "c": bar.close} for bar in candles],
             }).encode()

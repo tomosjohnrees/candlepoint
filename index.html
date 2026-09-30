@@ -40,9 +40,10 @@
     .chart-heading h2 { font-size:23px }
     .chart-heading p { margin:5px 0 0; color:#9aafbd; font-size:13px }
     .chart-tools { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px }
-    .chart-ranges { display:flex; flex-wrap:wrap; gap:6px }
-    .chart-ranges button { padding:7px 10px; background:#162431; color:#bdced9; border-color:#344756 }
-    .chart-ranges button.active { background:#184335; border-color:#3f9271; color:#d5ffe8 }
+    .chart-selectors, .chart-intervals, .chart-ranges { display:flex; flex-wrap:wrap; gap:6px }
+    .chart-selectors { gap:10px }
+    .chart-intervals button, .chart-ranges button { padding:7px 10px; background:#162431; color:#bdced9; border-color:#344756 }
+    .chart-intervals button.active, .chart-ranges button.active { background:#184335; border-color:#3f9271; color:#d5ffe8 }
     .chart-readout { color:#b9cbd5; font-size:13px; font-variant-numeric:tabular-nums; min-height:20px; display:flex; flex-wrap:wrap; gap:4px 18px }
     .chart-area { flex:1; min-height:220px; display:flex; flex-direction:column; background:#0d151e; border-radius:8px; overflow:hidden }
     .chart-pane { min-height:0; position:relative }
@@ -51,7 +52,7 @@
     .chart-pane canvas { width:100%; height:100%; margin:0; border-radius:0 }
     .chart-legend { color:#93a9b7; font-size:12px; display:flex; gap:18px; flex-wrap:wrap }
     .chart-legend span::before { content:''; display:inline-block; width:14px; height:2px; margin:0 6px 3px 0; background:var(--line) }
-    @media (max-width:600px) { .chart-panel { padding:14px; gap:10px } .chart-dialog { width:100vw; height:100vh; border-radius:0 } .chart-heading h2 { font-size:20px } }
+    @media (max-width:600px) { .chart-panel { padding:14px; gap:10px } .chart-dialog { width:100vw; height:100vh; border-radius:0 } .chart-heading h2 { font-size:20px } .price-pane { flex:6 } .macd-pane { flex:4 } }
     .empty { color:#9aadb9; padding:35px 0 } .note { color:#8295a3; line-height:1.5; font-size:13px; margin-top:24px; max-width:850px }
   </style>
 </head>
@@ -79,11 +80,19 @@
         <button type="button" id="chart-close" aria-label="Close chart">Close ×</button>
       </div>
       <div class="chart-tools">
-        <div class="chart-ranges" aria-label="Chart date range">
-          <button type="button" data-range="all" class="active">All</button>
-          <button type="button" data-range="60">5 years</button>
-          <button type="button" data-range="24">2 years</button>
-          <button type="button" data-range="12">1 year</button>
+        <div class="chart-selectors">
+          <div class="chart-intervals" aria-label="Candle interval">
+            <button type="button" data-interval="1d">Daily</button>
+            <button type="button" data-interval="1w">Weekly</button>
+            <button type="button" data-interval="1M" class="active">Monthly</button>
+            <button type="button" data-interval="1Y">Yearly</button>
+          </div>
+          <div class="chart-ranges" aria-label="Chart date range">
+            <button type="button" data-range="all" class="active">All</button>
+            <button type="button" data-range="5">5 years</button>
+            <button type="button" data-range="2">2 years</button>
+            <button type="button" data-range="1">1 year</button>
+          </div>
         </div>
         <div class="chart-readout"><span id="chart-readout"></span><span id="macd-readout"></span></div>
       </div>
@@ -146,11 +155,43 @@
     function monthLabel(timestamp) {
       return new Date(timestamp).toLocaleDateString(undefined, {month:'short', year:'numeric', timeZone:'UTC'});
     }
+    const intervalNames = {'1d':'Daily', '1w':'Weekly', '1M':'Monthly', '1Y':'Yearly'};
+    function candleLabel(timestamp, interval, axis = false) {
+      if (interval === '1Y') return String(new Date(timestamp).getUTCFullYear());
+      if (interval === '1M' || axis) return monthLabel(timestamp);
+      const date = new Date(timestamp).toLocaleDateString(undefined,
+        {day:'numeric', month:'short', year:'numeric', timeZone:'UTC'});
+      return interval === '1w' ? 'Week of ' + date : date;
+    }
+    function firstVisibleIndex(bars, interval, range) {
+      if (range === 'all') return 0;
+      const end = new Date(bars.at(-1).t);
+      if (interval === '1d') end.setUTCDate(end.getUTCDate() + 1);
+      else if (interval === '1w') end.setUTCDate(end.getUTCDate() + 7);
+      else if (interval === '1M') end.setUTCMonth(end.getUTCMonth() + 1);
+      else end.setUTCFullYear(end.getUTCFullYear() + 1);
+      end.setUTCFullYear(end.getUTCFullYear() - Number(range));
+      const first = bars.findIndex(bar => bar.t >= end.getTime());
+      return first < 0 ? bars.length - 1 : first;
+    }
     function scannedBars(match) {
       const [year, month] = match.month.split('-').map(Number);
       return match.candles.map((bar, index) => ({
         ...bar, t: Date.UTC(year, month - match.candles.length + index, 1)
       }));
+    }
+    function yearlyBars(monthly) {
+      const result = [];
+      for (const bar of monthly) {
+        const t = Date.UTC(new Date(bar.t).getUTCFullYear(), 0, 1);
+        const previous = result.at(-1);
+        if (previous && previous.t === t) {
+          previous.h = Math.max(previous.h, bar.h);
+          previous.l = Math.min(previous.l, bar.l);
+          previous.c = bar.c;
+        } else result.push({t, o:bar.o, h:bar.h, l:bar.l, c:bar.c});
+      }
+      return result;
     }
     function emaSeries(values, period) {
       const alpha = 2 / (period + 1), result = [values[0]];
@@ -176,7 +217,7 @@
       macdCanvas.height = Math.round(height * ratio);
       const ctx = macdCanvas.getContext('2d'); ctx.scale(ratio, ratio);
       ctx.fillStyle = '#0d151e'; ctx.fillRect(0, 0, width, height);
-      const {bars, macd, hover} = activeChart;
+      const {bars, macd, hover, interval} = activeChart;
       const left = 20, right = width - 90, top = 28, bottom = height - 30;
       ctx.font = '12px system-ui, sans-serif';
       ctx.fillStyle = '#b9cbd5'; ctx.textAlign = 'left';
@@ -184,10 +225,10 @@
       const tickEvery = Math.max(1, Math.ceil(visibleCount / Math.max(1, Math.floor((right - left) / 105))));
       ctx.textAlign = 'center'; ctx.fillStyle = '#9aafbd';
       for (let i = first; i < bars.length; i += tickEvery)
-        ctx.fillText(monthLabel(bars[i].t), left + (i - first + .5) / visibleCount * (right - left), height - 9);
+        ctx.fillText(candleLabel(bars[i].t, interval, true), left + (i - first + .5) / visibleCount * (right - left), height - 9);
       if (!macd) {
         ctx.textAlign = 'left'; ctx.fillStyle = '#9aafbd';
-        ctx.fillText('MACD needs at least 36 monthly candles', left, top + 30);
+        ctx.fillText('MACD needs at least 36 ' + intervalNames[interval].toLowerCase() + ' candles', left, top + 30);
         macdReadout.textContent = 'MACD unavailable';
         return;
       }
@@ -232,11 +273,28 @@
       const item = macd[hover >= first && hover < bars.length ? hover : bars.length - 1];
       macdReadout.textContent = item ? `MACD ${number(item.line)}  Signal ${number(item.signal)}  Histogram ${number(item.histogram)}` : 'MACD warming up';
     }
+    function drawEmptyChart() {
+      for (const canvas of [fullCanvas, macdCanvas]) {
+        const width = canvas.clientWidth, height = canvas.clientHeight;
+        if (!width || !height) continue;
+        const ratio = window.devicePixelRatio || 1;
+        canvas.width = Math.round(width * ratio); canvas.height = Math.round(height * ratio);
+        const ctx = canvas.getContext('2d'); ctx.scale(ratio, ratio);
+        ctx.fillStyle = '#0d151e'; ctx.fillRect(0, 0, width, height);
+        if (canvas === fullCanvas) {
+          ctx.fillStyle = '#9aafbd'; ctx.font = '14px system-ui, sans-serif';
+          ctx.fillText(activeChart.message || 'No candle data', 20, 42);
+        }
+      }
+      chartReadout.textContent = '';
+      macdReadout.textContent = '';
+    }
     function drawFullChart() {
       if (!activeChart || !chartDialog.open) return;
       const {match, bars} = activeChart;
       const width = fullCanvas.clientWidth, height = fullCanvas.clientHeight;
-      if (!width || !height || !bars.length) return;
+      if (!width || !height) return;
+      if (!bars.length) { drawEmptyChart(); return; }
       const ratio = window.devicePixelRatio || 1;
       fullCanvas.width = Math.round(width * ratio);
       fullCanvas.height = Math.round(height * ratio);
@@ -244,8 +302,7 @@
       ctx.scale(ratio, ratio);
       ctx.fillStyle = '#0d151e'; ctx.fillRect(0, 0, width, height);
       const left = 20, right = width - 90, top = 18, bottom = height - 12;
-      const count = activeChart.range === 'all' ? bars.length : Number(activeChart.range);
-      const first = Math.max(0, bars.length - count);
+      const first = firstVisibleIndex(bars, activeChart.interval, activeChart.range);
       const visible = bars.slice(first);
       const low = Math.min(...visible.map(b => b.l));
       const high = Math.max(...visible.map(b => b.h));
@@ -272,12 +329,12 @@
         ctx.fillRect(x(i) - bodyWidth / 2, Math.min(y(bar.o), y(bar.c)), bodyWidth,
           Math.max(1, Math.abs(y(bar.o) - y(bar.c))));
       }
-      if (match.support > 0) {
+      if (activeChart.interval === '1M' && match.support > 0) {
         ctx.setLineDash([5, 5]); ctx.strokeStyle = '#6595a5'; ctx.lineWidth = 1.5;
         ctx.beginPath(); ctx.moveTo(left, y(match.support)); ctx.lineTo(right, y(match.support)); ctx.stroke();
         ctx.setLineDash([]);
       }
-      if (match.resistance > 0) {
+      if (activeChart.interval === '1M' && match.resistance > 0) {
         ctx.strokeStyle = match.stage === 'short-base breakout' ? '#889fff' : '#48a7ff';
         ctx.lineWidth = 2;
         ctx.setLineDash(match.stage === 'short-base breakout' ? [6, 4] : []);
@@ -303,42 +360,115 @@
       }
       ctx.restore();
       const bar = bars[hover >= first && hover < bars.length ? hover : bars.length - 1];
-      chartReadout.textContent = `${monthLabel(bar.t)}  ·  O ${number(bar.o)}  H ${number(bar.h)}  L ${number(bar.l)}  C ${number(bar.c)}`;
+      chartReadout.textContent = `${candleLabel(bar.t, activeChart.interval)}  ·  O ${number(bar.o)}  H ${number(bar.h)}  L ${number(bar.l)}  C ${number(bar.c)}`;
       drawMacdChart(first, visible.length);
     }
-    async function openChart(match) {
+    function showChartBars(chart, bars, interval) {
+      chart.bars = bars;
+      chart.macd = macdSeries(bars);
+      chart.hover = -1;
+      chart.message = '';
+      chartStatus.textContent = `${bars.length} ${intervalNames[interval].toLowerCase()} candles · ` +
+        `${candleLabel(bars[0].t, interval)} to ${candleLabel(bars.at(-1).t, interval)} · log price scale` +
+        (interval === '1Y' ? ' · built from monthly history; first/current years may be partial' : '');
+      drawFullChart();
+    }
+    async function loadChartInterval(chart, interval) {
+      chart.interval = interval;
+      chart.hover = -1;
+      document.querySelector('#chart-title').textContent = chart.match.symbol + ' · ' + intervalNames[interval] + ' chart';
+      const monthly = interval === '1M';
+      document.querySelector('#support-legend').hidden = !monthly || !(chart.match.support > 0);
+      document.querySelector('#triangle-legend').hidden = !monthly || chart.match.stage === 'short-base breakout' || !chart.match.resistance;
+      document.querySelector('#base-legend').hidden = !monthly || chart.match.stage !== 'short-base breakout';
+      for (const button of document.querySelectorAll('[data-interval]')) {
+        button.classList.toggle('active', button.dataset.interval === interval);
+        button.setAttribute('aria-pressed', button.dataset.interval === interval);
+      }
+      fullCanvas.setAttribute('aria-label', intervalNames[interval] + ' candlestick chart');
+      macdCanvas.setAttribute('aria-label', intervalNames[interval] + ' MACD indicator');
+      if (chart.cache[interval]) {
+        showChartBars(chart, chart.cache[interval], interval);
+        return;
+      }
+      if (interval === '1Y') {
+        const fullMonthly = chart.cache['1M'];
+        if (fullMonthly) {
+          chart.cache['1Y'] = yearlyBars(fullMonthly);
+          showChartBars(chart, chart.cache['1Y'], interval);
+          return;
+        }
+        if (chart.pending['1M']) {
+          chart.bars = []; chart.macd = null;
+          chart.message = 'Building yearly candles from monthly history…';
+          chartStatus.textContent = chart.message;
+          drawFullChart();
+          try {
+            const monthlyBars = await chart.pending['1M'];
+            chart.cache['1M'] = monthlyBars;
+            if (activeChart !== chart || chart.interval !== interval) return;
+            chart.cache['1Y'] = yearlyBars(monthlyBars);
+            showChartBars(chart, chart.cache['1Y'], interval);
+          } catch (error) {
+            if (activeChart !== chart || chart.interval !== interval) return;
+            showChartBars(chart, yearlyBars(chart.scannedBars), interval);
+            chartStatus.textContent = 'Yearly candles from scanned monthly window · full history unavailable';
+          }
+          return;
+        }
+        showChartBars(chart, yearlyBars(chart.scannedBars), interval);
+        chartStatus.textContent = 'Yearly candles from scanned monthly window · full history unavailable';
+        return;
+      }
+      if (monthly) {
+        showChartBars(chart, chart.scannedBars, interval);
+        chartStatus.textContent = 'Loading full monthly history…';
+      } else {
+        chart.bars = []; chart.macd = null;
+        chart.message = 'Loading ' + intervalNames[interval].toLowerCase() + ' candles…';
+        chartStatus.textContent = chart.message;
+        drawFullChart();
+      }
+      if (!chart.pending[interval]) {
+        chart.pending[interval] = fetch('/api/chart?symbol=' + encodeURIComponent(chart.match.symbol) +
+          '&interval=' + encodeURIComponent(interval)).then(async response => {
+            if (!response.ok) throw new Error('History unavailable');
+            const data = await response.json();
+            if (data.interval !== interval || !Array.isArray(data.candles) || !data.candles.length)
+              throw new Error('History unavailable');
+            return data.candles;
+          }).finally(() => { delete chart.pending[interval]; });
+      }
+      try {
+        const bars = await chart.pending[interval];
+        chart.cache[interval] = bars;
+        if (activeChart === chart && chart.interval === interval) showChartBars(chart, bars, interval);
+      } catch (error) {
+        if (activeChart !== chart || chart.interval !== interval) return;
+        chartStatus.textContent = monthly ? 'Showing scanned monthly candles · full history unavailable' :
+          intervalNames[interval] + ' candles unavailable';
+        if (!monthly) { chart.message = chartStatus.textContent; drawFullChart(); }
+      }
+    }
+    function openChart(match) {
       const bars = scannedBars(match);
-      const chart = {match, bars, macd:macdSeries(bars), range:'all', hover:-1};
+      const chart = {match, scannedBars:bars, bars, macd:macdSeries(bars),
+        interval:'1M', range:'all', hover:-1, cache:{}, pending:{}, message:''};
       activeChart = chart;
-      document.querySelector('#chart-title').textContent = match.symbol + ' · Monthly chart';
-      chartStatus.textContent = 'Loading full monthly history…';
-      document.querySelector('#support-legend').hidden = !(match.support > 0);
-      document.querySelector('#triangle-legend').hidden = match.stage === 'short-base breakout' || !match.resistance;
-      document.querySelector('#base-legend').hidden = match.stage !== 'short-base breakout';
-      document.querySelectorAll('[data-range]').forEach(button => {
+      for (const button of document.querySelectorAll('[data-range]')) {
         button.classList.toggle('active', button.dataset.range === 'all');
         button.setAttribute('aria-pressed', button.dataset.range === 'all');
-      });
-      chartDialog.showModal();
-      requestAnimationFrame(drawFullChart);
-      try {
-        const response = await fetch('/api/chart?symbol=' + encodeURIComponent(match.symbol));
-        if (!response.ok) throw new Error('History unavailable');
-        const data = await response.json();
-        if (activeChart !== chart) return;
-        if (!data.candles.length) throw new Error('History unavailable');
-        chart.bars = data.candles;
-        chart.macd = macdSeries(data.candles);
-        chart.hover = -1;
-        chartStatus.textContent = data.candles.length + ' monthly candles · ' + monthLabel(data.candles[0].t) + ' to ' + monthLabel(data.candles.at(-1).t) + ' · log price scale';
-        drawFullChart();
-      } catch (error) {
-        if (activeChart === chart) chartStatus.textContent = 'Showing scanned chart window · full history unavailable · log price scale';
       }
+      chartDialog.showModal();
+      loadChartInterval(chart, '1M');
+      requestAnimationFrame(drawFullChart);
     }
     document.querySelector('#chart-close').onclick = () => chartDialog.close();
     chartDialog.onclose = () => { activeChart = null; };
     chartDialog.onclick = event => { if (event.target === chartDialog) chartDialog.close(); };
+    document.querySelectorAll('[data-interval]').forEach(button => button.onclick = () => {
+      if (activeChart) loadChartInterval(activeChart, button.dataset.interval);
+    });
     document.querySelectorAll('[data-range]').forEach(button => button.onclick = () => {
       if (!activeChart) return;
       activeChart.range = button.dataset.range; activeChart.hover = -1;
@@ -349,10 +479,9 @@
       drawFullChart();
     });
     function moveChartPointer(event) {
-      if (!activeChart) return;
+      if (!activeChart || !activeChart.bars.length) return;
       const bars = activeChart.bars;
-      const count = activeChart.range === 'all' ? bars.length : Number(activeChart.range);
-      const first = Math.max(0, bars.length - count);
+      const first = firstVisibleIndex(bars, activeChart.interval, activeChart.range);
       const canvas = event.currentTarget;
       const width = canvas.clientWidth, right = width - 90, left = 20;
       const offset = event.clientX - canvas.getBoundingClientRect().left;

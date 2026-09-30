@@ -35,18 +35,30 @@ class ChartRouteTests(unittest.TestCase):
 
     def test_chart_returns_full_monthly_history_for_a_result(self):
         candle = Candle(1_700_000_000_000, 1_702_000_000_000, 2, 3, 1, 2.5, 100)
-        with patch.object(app, "monthly_candles", return_value=[candle]) as fetch:
+        with patch.object(app, "historical_candles", return_value=[candle]) as fetch:
             handler = self.request("symbol=NEARUSDT")
-        fetch.assert_called_once_with("NEARUSDT", limit=1000)
+        fetch.assert_called_once_with("NEARUSDT", "1M")
         handler.send_response.assert_called_once_with(200)
         result = json.loads(handler.wfile.getvalue())
-        self.assertEqual(result, {"symbol": "NEARUSDT", "candles": [
+        self.assertEqual(result, {"symbol": "NEARUSDT", "interval": "1M", "candles": [
             {"t": candle.open_time, "o": 2, "h": 3, "l": 1, "c": 2.5}]})
 
     def test_unknown_symbol_is_rejected_without_fetching(self):
-        with patch.object(app, "monthly_candles") as fetch:
+        with patch.object(app, "historical_candles") as fetch:
             handler = self.request("symbol=OTHERUSDT")
         handler.send_error.assert_called_once_with(404, "Chart unavailable")
+        fetch.assert_not_called()
+
+    def test_daily_interval_fetches_daily_candles(self):
+        with patch.object(app, "historical_candles", return_value=[]) as fetch:
+            handler = self.request("symbol=NEARUSDT&interval=1d")
+        fetch.assert_called_once_with("NEARUSDT", "1d")
+        self.assertEqual(json.loads(handler.wfile.getvalue())["interval"], "1d")
+
+    def test_unsupported_interval_is_rejected(self):
+        with patch.object(app, "historical_candles") as fetch:
+            handler = self.request("symbol=NEARUSDT&interval=1m")
+        handler.send_error.assert_called_once_with(400, "Unsupported candle interval")
         fetch.assert_not_called()
 
 

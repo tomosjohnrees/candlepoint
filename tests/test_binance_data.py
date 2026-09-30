@@ -1,0 +1,28 @@
+"""Historical chart candle loading."""
+
+import unittest
+from unittest.mock import patch
+
+import binance_data
+
+
+def row(open_time):
+    return [open_time, "1", "3", "0.5", "2", "0", open_time + 1, "100"]
+
+
+class HistoricalCandlesTests(unittest.TestCase):
+    def test_daily_history_pages_backward_without_overlap(self):
+        latest = [row(i) for i in range(1000, 2000)]
+        older = [row(i) for i in range(998, 1000)]
+        with patch.object(binance_data, "_get", side_effect=[latest, older]) as fetch:
+            candles = binance_data.historical_candles("NEARUSDT", "1d")
+        self.assertEqual([bar.open_time for bar in candles], list(range(998, 2000)))
+        self.assertEqual(fetch.call_args_list[0].args[1],
+                         {"symbol": "NEARUSDT", "interval": "1d", "limit": 1000})
+        self.assertEqual(fetch.call_args_list[1].args[1],
+                         {"symbol": "NEARUSDT", "interval": "1d", "limit": 1000,
+                          "endTime": 999})
+
+
+if __name__ == "__main__":
+    unittest.main()
