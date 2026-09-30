@@ -220,6 +220,18 @@ class CoinPageTests(unittest.TestCase):
         script.send_response.assert_called_once_with(200)
         script.send_header.assert_any_call("Content-Type", "application/javascript; charset=utf-8")
 
+    def test_signal_guide_routes_and_scripts_are_served(self):
+        for path in ["/learn"] + ["/learn/" + slug for slug in app.SIGNAL_GUIDE_SLUGS]:
+            page = self.request(path)
+            page.send_response.assert_called_once_with(200)
+            page.send_header.assert_any_call("Content-Type", "text/html; charset=utf-8")
+            self.assertIn(b"Signal guide", page.wfile.getvalue())
+        for path in ("/signal_guides.js", "/learn.js"):
+            script = self.request(path)
+            script.send_response.assert_called_once_with(200)
+            script.send_header.assert_any_call("Content-Type", "application/javascript; charset=utf-8")
+        self.request("/learn/unknown").send_error.assert_called_once_with(404)
+
     def test_invalid_coin_path_and_query_are_rejected(self):
         self.request("/coin/../app.py").send_error.assert_called_once_with(404)
         self.request("/api/coin?symbol=ETHBTC&symbol=BNBBTC").send_error.assert_called_once_with(400, "Invalid symbol")

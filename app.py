@@ -38,6 +38,10 @@ state = {
 }
 RESULT_GROUPS = ("matches", "watchlist", "key_levels", "hourly_extremes", "btc_weekly")
 SYMBOL_PATTERN = re.compile(r"[A-Z0-9]{1,30}(?:USDT|BTC)\Z")
+SIGNAL_GUIDE_SLUGS = frozenset((
+    "short-base-breakout", "near-breakout", "breaking-out", "monthly-key-level",
+    "early-macd", "hourly-extremes", "weekly-macd", "weekly-upper-band",
+))
 
 
 def signal_identity(group: str, item: dict) -> tuple:
@@ -264,8 +268,13 @@ class Handler(BaseHTTPRequestHandler):
             payload = (ROOT / "coin.html").read_bytes()
             self.send_response(200)
             self.send_header("Content-Type", "text/html; charset=utf-8")
+        elif request.path == "/learn" or (request.path.startswith("/learn/") and
+                                             request.path[len("/learn/"):] in SIGNAL_GUIDE_SLUGS):
+            payload = (ROOT / "learn.html").read_bytes()
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html; charset=utf-8")
         elif request.path in ("/", "/index.html", "/patterns", "/key-levels", "/macd-watch", "/hourly-extremes", "/btc-weekly",
-                              "/key_levels.js", "/bollinger_bands.js", "/coin.js"):
+                              "/key_levels.js", "/bollinger_bands.js", "/coin.js", "/signal_guides.js", "/learn.js"):
             filename = request.path.lstrip("/") if request.path.endswith(".js") else "index.html"
             payload = (ROOT / filename).read_bytes()
             self.send_response(200)
