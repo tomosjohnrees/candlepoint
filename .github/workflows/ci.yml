@@ -31,4 +31,4 @@ jobs:
       - name: Run chart tests
         run: node --test tests/*.js
       - name: Compile application modules
-        run: python -m py_compile app.py binance_data.py triangle_scanner.py monthly_key_levels.py
+        run: python -m py_compile app.py binance_data.py triangle_scanner.py monthly_key_levels.py weekly_btc.py

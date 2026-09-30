@@ -27,7 +27,7 @@ class HistoricalCandlesTests(unittest.TestCase):
         with patch.object(binance_data, "_get", return_value=[row(1000)]) as fetch:
             candles = binance_data.weekly_candles("ETHBTC")
         fetch.assert_called_once_with("/api/v3/klines",
-                                      {"symbol": "ETHBTC", "interval": "1w", "limit": 100})
+                                      {"symbol": "ETHBTC", "interval": "1w", "limit": 1000})
         self.assertEqual(candles[0].open_time, 1000)
 
     def test_hourly_scan_fetches_hourly_candles(self):

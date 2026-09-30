@@ -43,6 +43,8 @@ class WeeklyBtcTests(unittest.TestCase):
     def test_no_signal_for_flat_or_short_history(self):
         self.assertIsNone(detect_weekly_btc("ETHBTC", candles([100] * 60)))
         self.assertIsNone(detect_weekly_btc("ETHBTC", candles([100] * 35)))
+        rising = [100 + i * 0.1 for i in range(59)]
+        self.assertIsNone(detect_weekly_btc("ETHBTC", candles(rising + [rising[-1] + 5])))
 
 
 if __name__ == "__main__":

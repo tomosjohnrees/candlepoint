@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/tomosjohnrees/candlepoint/actions/workflows/ci.yml/badge.svg)](https://github.com/tomosjohnrees/candlepoint/actions/workflows/ci.yml)
 
-Candlepoint is a local, read-only market scanner for Binance USDT spot pairs. It screens monthly candles for chart patterns, significant price levels, and improving MACD momentum, and hourly candles for combined MACD and RSI extremes. It presents the results in a browser dashboard with charts and the data behind each signal. It does not connect to an exchange account or place trades.
+Candlepoint is a local, read-only market scanner for Binance USDT and BTC spot pairs. It screens USDT pairs for monthly chart patterns, significant price levels, improving MACD momentum, and hourly MACD/RSI extremes. BTC pairs get separate weekly MACD and Bollinger Band signals. It presents the results in a browser dashboard with charts and the data behind each signal. It does not connect to an exchange account or place trades.
 
 ![Candlepoint pattern results and signal details](docs/screenshots/patterns.png)
 
@@ -14,10 +14,11 @@ Candlepoint is a local, read-only market scanner for Binance USDT spot pairs. It
 | **Key levels** | Assets moving toward a monthly swing level or crossing it in either direction. A price-movement dropdown filters approaches and upward or downward crosses. |
 | **MACD watch** | Assets whose monthly MACD histogram remains negative but has risen for two consecutive months toward zero. This is a momentum watchlist, not a predicted crossover. |
 | **1-hour extremes** | Assets with 1-hour RSI at least 80 and a positive MACD line in the top 5% of its previous 180 hourly readings, or RSI at most 20 and a negative MACD line in the bottom 5%. |
+| **BTC weekly** | BTC-quoted pairs whose weekly MACD histogram has just turned positive, whose weekly close is at least 3% above the upper Bollinger Band, or both. A weekly-signal dropdown filters the two conditions. |
 
 Each result includes a price preview, its current status, and expandable signal details. The scan summary shows how many markets were screened and when the data was updated. Results based on an open candle are marked because they can change before the candle closes.
 
-Focus **Search symbol** to see every ticker with a signal in the current scan, then type to narrow the list or choose one. The search narrows results across the tabs. After the second completed scan, signals absent from the preceding scan get a **New** badge. **New since last scan** shows only those signals. A change from approaching a level to crossing it counts as new; a continuing signal on a later candle does not. The first scan has no earlier scan to compare.
+Focus **Search symbol** to see every ticker with a signal in the current scan, then type to narrow the list or choose one. The search narrows results across the tabs. After the second completed scan, signals absent from the preceding scan get a **New** badge. **New since last scan** shows only those signals. A change from approaching a level to crossing it, or a BTC pair gaining its second weekly condition, counts as new; a continuing signal on a later candle does not. The first scan has no earlier scan to compare.
 
 | Monthly key levels | Early MACD watch |
 | --- | --- |
@@ -25,7 +26,7 @@ Focus **Search symbol** to see every ticker with a signal in the current scan, t
 
 ## Charts
 
-Select **View chart** on any result to inspect hourly, daily, weekly, monthly, or yearly candles. The chart offers date ranges, a logarithmic price scale, a MACD 12/26/9 panel, and optional overlays for swing levels and Bollinger Bands (20 closes, two standard deviations). Monthly pattern charts also show the scanned support and triangle boundary; a monthly key-level result shows its scanned level. Hourly extreme results open on the hourly chart.
+Select **View chart** on any result to inspect hourly, daily, weekly, monthly, or yearly candles. The chart offers date ranges, a logarithmic price scale, a MACD 12/26/9 panel, and optional overlays for swing levels and Bollinger Bands (20 closes, two standard deviations). Monthly pattern charts also show the scanned support and triangle boundary; a monthly key-level result shows its scanned level. Hourly extreme results open on the hourly chart, and BTC-pair signals open on the weekly chart with prices quoted in BTC.
 
 Hourly, daily and weekly history is fetched when requested. Yearly candles are assembled from monthly data. Indicators are recalculated for the selected candle interval. Short histories may not have enough candles to display MACD or Bollinger Bands.
 
@@ -49,17 +50,19 @@ Optional environment settings:
 MAX_SYMBOLS=100 SCAN_INTERVAL_SECONDS=3600 PORT=8765 python3 app.py
 ```
 
-`MAX_SYMBOLS` defaults to 1,000; `SCAN_INTERVAL_SECONDS` defaults to 7,200; `PORT` defaults to 8,765. The server binds to `127.0.0.1`.
+`MAX_SYMBOLS` defaults to 1,000 per quote asset; `SCAN_INTERVAL_SECONDS` defaults to 7,200; `PORT` defaults to 8,765. The server binds to `127.0.0.1`.
 
 ## How screening works
 
-The scanner starts with active Binance USDT spot pairs, excludes stablecoin and fiat base assets, and requires at least 1 million USDT of reported 24-hour quote turnover. Monthly signals use monthly OHLCV candles and the standard MACD 12/26/9 calculation. The hourly screen fetches 300 hourly candles per symbol and uses Wilder RSI (14) and the MACD line (12/26).
+The scanner starts with active Binance USDT and BTC spot pairs and excludes stablecoin and fiat base assets. It requires at least 1 million USDT of reported 24-hour quote turnover for USDT pairs and 10 BTC for BTC pairs. Monthly signals use monthly OHLCV candles and the standard MACD 12/26/9 calculation. The hourly screen fetches 300 hourly candles per USDT pair and uses Wilder RSI (14) and the MACD line (12/26). BTC-pair signals use up to 1,000 weekly candles.
 
 - **Descending triangles:** Look across 24–60 monthly candles for a support zone tested over at least 18 months, lower swing highs, and a falling upper boundary with an estimated apex within eight months. The monthly MACD histogram must be positive now and have been nonpositive within the preceding three candles. A first monthly candle trading at least 1% above the previous month's frozen boundary is labelled **Breaking out**; a qualifying pattern short of that threshold is **Near breakout**.
 - **Short-base breakouts:** Require an eight-month floor with at least three tests spanning seven months, an earlier high at least twice the base high, and current monthly price at least 5% above the preceding eight months' high. The monthly MACD histogram must have turned positive recently. This category does not imply a multiyear triangle.
 - **Monthly key levels:** Rank up to five swing levels from preceding monthly candles, excluding the candle being evaluated. Compare the prior monthly close with the latest monthly price to identify crossings above or below a level. An asset also qualifies when it moves toward a level and comes within 3% of it.
 - **Early MACD watch:** Require three negative monthly histogram readings that rise consecutively, at least 25% progress toward zero over two months, and a remaining gap no greater than three months at that recent pace. Assets already listed as triangle matches are excluded from this watchlist.
 - **1-hour extremes:** Require RSI at least 80 and positive MACD at or above the 95th percentile of its own previous 180 hourly readings, or RSI at most 20 and negative MACD at or below the 5th percentile. MACD is divided by price before ranking, so its displayed percent is comparable across assets. The latest hourly candle may still be open.
+- **Weekly BTC MACD:** Require the latest weekly MACD 12/26/9 histogram to be positive and the preceding week's histogram to be nonpositive. This is a first positive week, not a forecast.
+- **Weekly BTC Bollinger Band:** Require the latest weekly close to be at least 3% above the upper band, calculated from 20 weekly closes and two population standard deviations. A pair can meet both weekly conditions. Open weeks are marked as provisional.
 
 Signals are screening results, not forecasts or trading recommendations. The pattern fit score measures similarity to the scanner's rules; it is not a probability of profit. The thresholds have not been validated for profitability, and an open monthly candle can change a signal before month end.
 

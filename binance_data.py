@@ -73,7 +73,7 @@ def hourly_candles(symbol: str, limit: int = 300) -> list[Candle]:
     return _parse_candles(rows)
 
 
-def weekly_candles(symbol: str, limit: int = 100) -> list[Candle]:
+def weekly_candles(symbol: str, limit: int = 1000) -> list[Candle]:
     rows = _get("/api/v3/klines", {"symbol": symbol, "interval": "1w", "limit": limit})
     return _parse_candles(rows)
 

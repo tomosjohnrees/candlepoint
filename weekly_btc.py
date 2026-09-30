@@ -66,7 +66,7 @@ def detect_weekly_btc(symbol: str, candles: Sequence[Candle],
     reason = "; ".join(reasons) + (" (week still open)." if provisional else ".")
     return WeeklyBtcSignal(
         symbol, "weekly BTC", signals, provisional, last.close, week,
-        histogram[-1], histogram[-2], round(upper, 10), round(distance, 2),
+        histogram[-1], histogram[-2], upper, round(distance, 2),
         [{"t": bar.open_time, "o": bar.open, "h": bar.high, "l": bar.low,
           "c": bar.close} for bar in bars[-52:]], reason,
     )
