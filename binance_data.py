@@ -63,6 +63,19 @@ def active_btc_symbols(limit: int = 1000, min_daily_quote_volume: float = 10) ->
     return _active_spot_symbols("BTC", limit, min_daily_quote_volume)
 
 
+def spot_symbol_trading(symbol: str) -> bool:
+    """Whether Binance currently allows spot trading for one exact market."""
+    try:
+        exchange = _get("/api/v3/exchangeInfo", {"symbol": symbol})
+    except HTTPError as exc:
+        if exc.code in (400, 404):
+            return False
+        raise
+    return any(entry.get("symbol") == symbol and entry.get("status") == "TRADING"
+               and entry.get("isSpotTradingAllowed", True)
+               for entry in exchange.get("symbols", []))
+
+
 def monthly_candles(symbol: str, limit: int = 100) -> list[Candle]:
     rows = _get("/api/v3/klines", {"symbol": symbol, "interval": "1M", "limit": limit})
     return _parse_candles(rows)

@@ -11,10 +11,12 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from urllib.error import HTTPError, URLError
 from urllib.parse import parse_qs, urlsplit
 
 from binance_data import (active_btc_symbols, active_usdt_symbols, hourly_candles,
-                          historical_candles, monthly_candles, weekly_candles)
+                          historical_candles, monthly_candles, spot_symbol_trading,
+                          weekly_candles)
 from hourly_extremes import detect_hourly_extreme
 from monthly_key_levels import detect_key_level_signal
 from triangle_scanner import detect, detect_macd_watch, detect_short_base_breakout
@@ -223,6 +225,12 @@ class Handler(BaseHTTPRequestHandler):
             if not available and not derived_from:
                 self.send_error(404, "Chart unavailable")
                 return
+            if derived_from:
+                try:
+                    if spot_symbol_trading(symbol):
+                        derived_from = None
+                except (HTTPError, URLError, TimeoutError):
+                    pass  # A calculated comparison is still available if market status cannot be checked.
             try:
                 if derived_from:
                     coin_candles = chart_history(derived_from, interval)

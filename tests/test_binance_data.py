@@ -30,6 +30,17 @@ class HistoricalCandlesTests(unittest.TestCase):
                                       {"symbol": "ETHBTC", "interval": "1w", "limit": 1000})
         self.assertEqual(candles[0].open_time, 1000)
 
+    def test_exact_btc_market_must_be_trading_for_real_chart(self):
+        with patch.object(binance_data, "_get", return_value={"symbols": [
+            {"symbol": "NEARBTC", "status": "TRADING", "isSpotTradingAllowed": True}
+        ]}) as fetch:
+            self.assertTrue(binance_data.spot_symbol_trading("NEARBTC"))
+        fetch.assert_called_once_with("/api/v3/exchangeInfo", {"symbol": "NEARBTC"})
+        with patch.object(binance_data, "_get", return_value={"symbols": [
+            {"symbol": "XVSBTC", "status": "BREAK", "isSpotTradingAllowed": True}
+        ]}):
+            self.assertFalse(binance_data.spot_symbol_trading("XVSBTC"))
+
     def test_hourly_scan_fetches_hourly_candles(self):
         with patch.object(binance_data, "_get", return_value=[row(1000)]) as fetch:
             candles = binance_data.hourly_candles("NEARUSDT")

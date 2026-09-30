@@ -131,14 +131,12 @@ async function loadChart() {
     derivedChart = !!result.derived;
     priceCanvas.setAttribute('aria-label', derivedChart ?
       'BTC equivalent close price line chart' : 'Price candlestick chart with Bollinger bands');
-    if (!derivedChart && !isBtcPair && quote === 'BTC') {
-      const fullLink = document.querySelector('#full-chart-link');
-      fullLink.hidden = false;
-      fullLink.href = '/btc-weekly?chart=' + encodeURIComponent(chartSymbol) + '&interval=' + interval;
-    }
+    if (!isBtcPair) document.querySelector('[data-quote="BTC"]').textContent =
+      derivedChart ? 'BTC equivalent' : 'BTC';
     document.querySelector('#chart-note').textContent = derivedChart ?
       'BTC equivalent from ' + base + '/USDT ÷ BTC/USDT closes · calculated comparison, not a traded pair' :
-      'Green / red candles · purple Bollinger bands (20, 2) · MACD below';
+      (quote === 'BTC' ? 'Direct Binance ' + base + '/BTC candles · ' : 'Green / red candles · ') +
+      'purple Bollinger bands (20, 2) · MACD below';
     document.querySelector('#chart-heading').textContent = base + ' / ' + quote +
       (derivedChart ? ' equivalent' : '') + ' price history';
     bands = bollingerBandsForBars(bars);
@@ -320,7 +318,6 @@ async function refresh() {
           hourly_extremes:'/hourly-extremes', btc_weekly:'/btc-weekly'})[firstGroup];
         interval = firstGroup === 'btc_weekly' ? '1w' : firstGroup === 'hourly_extremes' ? '1h' : '1M';
         document.querySelector('#quote-options').hidden = false;
-        if (!isBtcPair) document.querySelector('[data-quote="BTC"]').textContent = 'BTC equivalent';
         chartInitialized = true;
         loadChart();
       }

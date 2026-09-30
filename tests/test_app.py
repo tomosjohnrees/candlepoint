@@ -93,8 +93,10 @@ class ChartRouteTests(unittest.TestCase):
         btc = Candle(near.open_time, near.close_time, 45000, 46000, 44000, 45000, 100)
         unrelated = Candle(near.open_time - 604800000, near.close_time - 604800000,
                            40000, 41000, 39000, 40000, 100)
-        with patch.object(app, "historical_candles", side_effect=[[near], [unrelated, btc]]) as fetch:
+        with patch.object(app, "spot_symbol_trading", return_value=False) as trading, \
+             patch.object(app, "historical_candles", side_effect=[[near], [unrelated, btc]]) as fetch:
             handler = self.request("symbol=NEARBTC&interval=1w")
+        trading.assert_called_once_with("NEARBTC")
         self.assertEqual(fetch.call_count, 2)
         self.assertEqual([call.args for call in fetch.call_args_list],
                          [("NEARUSDT", "1w"), ("BTCUSDT", "1w")])
@@ -103,6 +105,19 @@ class ChartRouteTests(unittest.TestCase):
         self.assertEqual(data["symbol"], "NEARBTC")
         self.assertEqual(data["candles"], [{"t": near.open_time, "o": .0001,
                                              "h": .0001, "l": .0001, "c": .0001}])
+
+    def test_trading_btc_market_uses_real_candles(self):
+        candle = Candle(1_700_000_000_000, 1_700_100_000_000, .0001, .00012,
+                        .00008, .00011, 100)
+        with patch.object(app, "spot_symbol_trading", return_value=True) as trading, \
+             patch.object(app, "historical_candles", return_value=[candle]) as fetch:
+            handler = self.request("symbol=NEARBTC&interval=1w")
+        trading.assert_called_once_with("NEARBTC")
+        fetch.assert_called_once_with("NEARBTC", "1w")
+        data = json.loads(handler.wfile.getvalue())
+        self.assertFalse(data["derived"])
+        self.assertEqual(data["candles"], [{"t": candle.open_time, "o": .0001,
+                                             "h": .00012, "l": .00008, "c": .00011}])
 
     def test_btc_equivalent_requires_an_active_usdt_result(self):
         with patch.object(app, "historical_candles") as fetch:
