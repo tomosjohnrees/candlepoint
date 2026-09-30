@@ -13,6 +13,7 @@ from pathlib import Path
 from urllib.parse import parse_qs, urlsplit
 
 from binance_data import active_usdt_symbols, historical_candles, monthly_candles
+from monthly_key_levels import detect_key_level_signal
 from triangle_scanner import detect, detect_macd_watch, detect_short_base_breakout
 
 
@@ -25,7 +26,8 @@ lock = threading.Lock()
 scan_lock = threading.Lock()
 state = {
     "status": "Waiting for first scan", "updated_at": None, "scanned": 0,
-    "universe": 0, "errors": 0, "matches": [], "watchlist": [], "last_error": None,
+    "universe": 0, "errors": 0, "matches": [], "watchlist": [],
+    "key_levels": [], "last_error": None,
 }
 
 
@@ -48,6 +50,7 @@ def scan_once() -> None:
         symbols = active_usdt_symbols(limit=MAX_SYMBOLS)
         matches = []
         watchlist = []
+        key_levels = []
         with lock:
             state["universe"] = len(symbols)
         with ThreadPoolExecutor(max_workers=4) as pool:
@@ -55,11 +58,13 @@ def scan_once() -> None:
             for future in as_completed(futures):
                 symbol = futures[future]
                 try:
-                    match, watch = future.result()
+                    match, watch, key_level = future.result()
                     if match:
                         matches.append(match.to_dict())
                     elif watch:
                         watchlist.append(watch.to_dict())
+                    if key_level:
+                        key_levels.append(key_level.to_dict())
                 except Exception as exc:
                     with lock:
                         state["errors"] += 1
@@ -69,9 +74,11 @@ def scan_once() -> None:
         matches.sort(key=lambda item: (item.get("score") is not None,
                                        item.get("score", 0)), reverse=True)
         watchlist.sort(key=lambda item: item["months_to_zero_at_recent_pace"])
+        key_levels.sort(key=lambda item: (item["level_signal"].startswith("Approaching"),
+                                          abs(item["distance_pct"])))
         with lock:
             state.update(status="Ready", updated_at=datetime.now(timezone.utc).isoformat(),
-                         matches=matches, watchlist=watchlist)
+                         matches=matches, watchlist=watchlist, key_levels=key_levels)
             save_state()
     except Exception as exc:
         with lock:
@@ -85,7 +92,8 @@ def scan_once() -> None:
 def _scan_symbol(symbol: str):
     candles = monthly_candles(symbol)
     match = detect(symbol, candles) or detect_short_base_breakout(symbol, candles)
-    return match, None if match else detect_macd_watch(symbol, candles)
+    return (match, None if match else detect_macd_watch(symbol, candles),
+            detect_key_level_signal(symbol, candles))
 
 
 def scan_forever() -> None:
@@ -112,8 +120,8 @@ class Handler(BaseHTTPRequestHandler):
                 self.send_error(400, "Unsupported candle interval")
                 return
             with lock:
-                available = any(item["symbol"] == symbol for group in ("matches", "watchlist")
-                                for item in state[group])
+                available = any(item["symbol"] == symbol for group in ("matches", "watchlist", "key_levels")
+                                for item in state.get(group, []))
             if not available:
                 self.send_error(404, "Chart unavailable")
                 return

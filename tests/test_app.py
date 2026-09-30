@@ -14,13 +14,16 @@ class ChartRouteTests(unittest.TestCase):
         with app.lock:
             self.old_matches = app.state["matches"]
             self.old_watchlist = app.state["watchlist"]
+            self.old_key_levels = app.state["key_levels"]
             app.state["matches"] = [{"symbol": "NEARUSDT"}]
             app.state["watchlist"] = []
+            app.state["key_levels"] = [{"symbol": "LEVELUSDT"}]
 
     def tearDown(self):
         with app.lock:
             app.state["matches"] = self.old_matches
             app.state["watchlist"] = self.old_watchlist
+            app.state["key_levels"] = self.old_key_levels
 
     def request(self, query):
         handler = app.Handler.__new__(app.Handler)
@@ -54,6 +57,12 @@ class ChartRouteTests(unittest.TestCase):
             handler = self.request("symbol=NEARUSDT&interval=1d")
         fetch.assert_called_once_with("NEARUSDT", "1d")
         self.assertEqual(json.loads(handler.wfile.getvalue())["interval"], "1d")
+
+    def test_key_level_only_result_can_open_chart(self):
+        with patch.object(app, "historical_candles", return_value=[]) as fetch:
+            handler = self.request("symbol=LEVELUSDT")
+        fetch.assert_called_once_with("LEVELUSDT", "1M")
+        handler.send_response.assert_called_once_with(200)
 
     def test_unsupported_interval_is_rejected(self):
         with patch.object(app, "historical_candles") as fetch:

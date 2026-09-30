@@ -6,7 +6,9 @@ A local, read-only scanner for Binance USDT spot coins approaching the decision
 point of a descending triangle while the **monthly MACD histogram has recently
 turned positive**. It also labels shorter flat-base breakouts separately. An
 early MACD watchlist shows coins whose histogram is still negative but rising
-toward zero. It uses monthly price and volume candles, not screenshots.
+toward zero. A monthly key levels tab shows coins approaching or crossing
+established swing levels in either direction. It uses monthly price and volume
+candles, not screenshots.
 
 ## Run
 
@@ -15,34 +17,39 @@ python3 app.py
 ```
 
 Open [http://127.0.0.1:8765](http://127.0.0.1:8765). The first scan starts
-automatically and repeats every two hours. Select **Enable browser alerts** to
+automatically and repeats every two hours. Select **Enable alerts** to
 get notifications while the dashboard is open. No exchange account, API key,
 or third-party package is required.
 
 The dashboard shows scan status, category totals, and compact result rows.
-Choose a category to narrow the list, or expand **Signal details** on a row for
-the full metrics and scanner explanation. Select **View chart** to switch between daily, weekly,
-monthly, and yearly candles inside the dashboard. Daily and weekly history is
-fetched from Binance when selected; yearly candles are assembled from monthly
-history. These chart candles are held in the open dashboard and are not saved
-to `scan_state.json`; scanner results still use monthly data. The chart includes
-date and price scales, time ranges, candle values,
-and a 12/26/9 MACD panel recalculated for the selected candle interval.
+Choose **Patterns**, **Key levels**, or **MACD watch**; the first two views have
+dropdowns for pattern type or price movement. Expand **Signal details** on a
+row for the full metrics and scanner explanation. Select **View chart** to
+switch between daily, weekly, monthly, and yearly candles inside the dashboard.
+The chart groups candle timeframe, date range, and price overlays separately.
+Daily and weekly history is fetched from Binance when selected; yearly candles
+are assembled from monthly history. These chart candles are held in the open
+dashboard and are not saved to `scan_state.json`; scanner results still use
+monthly data. The chart includes date and price scales, time ranges, candle
+values, and a 12/26/9 MACD panel
+recalculated for the selected candle interval.
 The price chart also shows Bollinger Bands based on the last 20 closes and two
-population standard deviations. Use **Bollinger bands** to hide or restore the
-overlay; the setting is remembered in the browser. The first 19 candles have
-no band values, and short yearly histories may have no bands at all. A lower
-band at zero or below is omitted from the logarithmic price plot.
+population standard deviations. Use the **Bollinger bands** checkbox to hide
+or restore the overlay; the setting is remembered in the browser. The first
+19 candles have no band values, and short yearly histories may have no bands
+at all. A lower band at zero or below is omitted from the logarithmic price
+plot.
 Scanner support and boundary lines appear on monthly candles, the interval
 used for screening. MACD needs at least 36 candles, so yearly MACD may be
 unavailable. If Binance history cannot be loaded, monthly charts use the
 scanned window; other intervals show an error.
 
-Use **Key levels** in a full chart to show up to five horizontal price levels
-from swing highs and lows in the visible date range. Green lines are below the
-latest close and amber lines are above it. The toggle works on every candle
-interval and remembers its setting in the browser. These levels are visual
-references, not scanner signals.
+Use the **Key levels** checkbox in a full chart to show up to five horizontal
+price levels from swing highs and lows in the visible date range. Green lines
+are below the latest close and amber lines are above it. The checkbox works on
+every candle interval and remembers its setting in the browser. A monthly key
+level signal also draws its scanned level as a solid line on the monthly chart,
+even when the optional visible-range levels are hidden.
 
 Optional settings:
 
@@ -79,6 +86,14 @@ MAX_SYMBOLS=100 SCAN_INTERVAL_SECONDS=3600 PORT=8765 python3 app.py
   This is a momentum watch only: it does not require a triangle and does not
   predict when a crossover will occur. A coin already listed as a triangle
   match is not duplicated here.
+- Put a coin in **Monthly key levels** when its latest monthly price crosses a
+  swing level from below or above relative to the prior monthly close, or moves
+  toward a level and comes within 3% of it. Levels are calculated from the
+  preceding monthly candles, excluding the candle being evaluated. The scan
+  ranks up to five levels by swing tests and prominence, then prioritizes a
+  crossing or shows the nearest approach for each coin. A signal can appear in
+  this tab and in a pattern tab. An open monthly candle makes its signal
+  provisional.
 
 The matching thresholds are starting values. They have not been validated for
 profitability. A chart match should be inspected before acting. The app makes

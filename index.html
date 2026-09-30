@@ -45,11 +45,18 @@
     .results-heading { display:flex; align-items:end; justify-content:space-between; gap:12px; margin-bottom:14px }
     .results-heading h2 { font-size:19px; letter-spacing:-.035em; margin:0 }
     .result-count { color:#71838a; font-size:13px }
-    .tabs { display:flex; gap:22px; border-bottom:1px solid #dce5e3; margin-bottom:15px; overflow-x:auto; scrollbar-width:thin }
+    .tabs { display:flex; gap:28px; border-bottom:1px solid #dce5e3; margin-bottom:16px }
     .tabs button { border:0; border-bottom:2px solid transparent; border-radius:0; padding:12px 1px 13px; background:none; color:#71838a; font-size:13px; font-weight:600; white-space:nowrap }
     .tabs button:hover { color:#244841 }
     .tabs button.active { color:#16584c; border-bottom-color:#1e7967 }
     .tabs .tab-count { display:inline-block; margin-left:6px; color:#809197; font-size:11px; font-variant-numeric:tabular-nums }
+    .subfilters { display:flex; align-items:end; margin:0 0 16px }
+    .subfilters[hidden] { display:none }
+    .subfilter[hidden] { display:none }
+    .subfilter { display:grid; gap:6px; min-width:min(100%,240px) }
+    .subfilter label, .chart-control-label { color:#71838a; font-size:11px; font-weight:700; letter-spacing:.025em }
+    .subfilter select, .chart-range { width:100%; min-height:38px; padding:8px 34px 8px 11px; border:1px solid #d8e1df; border-radius:7px; background:#fff; color:#2c444b; font:inherit; font-size:13px; font-weight:600; cursor:pointer }
+    .subfilter select:focus-visible, .chart-range:focus-visible { outline:3px solid #62b4a0; outline-offset:2px }
     #cards { display:grid; gap:8px }
     .result-card { background:#fff; border:1px solid #dfe7e5; border-radius:11px; min-width:0; box-shadow:0 1px 3px #102f2805; overflow:hidden }
     .result-card:hover { border-color:#c7d8d3; box-shadow:0 4px 16px #183c3310 }
@@ -62,6 +69,9 @@
     .badge.breaking { color:#236d55; background:#eaf5ed; border-color:#d4ead9 }
     .badge.base { color:#4d6090; background:#edf0f8; border-color:#dfe5f3 }
     .badge.watch { color:#856838; background:#faf4e8; border-color:#f0e6d1 }
+    .badge.level-up { color:#236d55; background:#eaf5ed; border-color:#d4ead9 }
+    .badge.level-down { color:#9a5e50; background:#f9eeeb; border-color:#f0ded9 }
+    .badge.level-near { color:#826c3e; background:#faf5e9; border-color:#eee5d0 }
     .provisional { color:#9a7a47; font-size:11px; font-weight:600 }
     .mini-chart { min-width:0; height:72px; border-radius:6px; overflow:hidden; background:#f5f8f7 }
     .mini-chart canvas { width:100%; height:100%; display:block }
@@ -72,10 +82,10 @@
     .card-actions button { border:1px solid #d9e3e0; background:#fff; color:#195a4f; border-radius:7px; padding:9px 12px; font-size:12px; font-weight:700; white-space:nowrap }
     .card-actions button:hover { background:#eef6f2; border-color:#b8d6c8 }
     .card-detail { border-top:1px solid #e9eeec; background:#fbfcfc; padding:0 20px }
-    .card-detail summary { list-style:none; cursor:pointer; padding:11px 0; color:#60767a; font-size:12px; font-weight:650 }
+    .card-detail summary { display:flex; align-items:center; gap:8px; list-style:none; cursor:pointer; padding:11px 0; color:#60767a; font-size:12px; font-weight:650 }
     .card-detail summary::-webkit-details-marker { display:none }
-    .card-detail summary::after { content:'⌄'; display:inline-block; margin-left:7px; font-size:15px; line-height:0 }
-    .card-detail[open] summary::after { transform:rotate(180deg) }
+    .card-detail summary::after { content:''; box-sizing:border-box; width:8px; height:8px; flex:none; border-right:1.5px solid currentColor; border-bottom:1.5px solid currentColor; transform:rotate(45deg); transition:transform .16s ease }
+    .card-detail[open] summary::after { transform:rotate(225deg) }
     .detail-body { padding:6px 0 20px }
     dl { display:grid; grid-template-columns:repeat(6,minmax(0,1fr)); gap:16px; margin:0 }
     dt { color:#829297; font-size:11px; line-height:1.35 } dd { margin:5px 0 0; font-variant-numeric:tabular-nums; font-size:13px; font-weight:650 }
@@ -91,11 +101,17 @@
     .chart-heading button { background:#fff; color:#2c444b; border:1px solid #d8e1df; border-radius:7px; padding:8px 11px; font-size:12px; font-weight:650 }
     .chart-heading button:hover { background:#f3f7f6 }
     .chart-tools { display:flex; flex-direction:column; align-items:stretch; gap:10px; min-width:0 }
-    .chart-selectors, .chart-intervals, .chart-ranges { display:flex; flex-wrap:wrap; gap:6px }
-    .chart-selectors { gap:10px }
-    .chart-intervals button, .chart-ranges button, #key-levels-toggle, #bollinger-toggle { padding:7px 10px; background:#fff; color:#61747a; border:1px solid #dce5e3; border-radius:6px; font-size:12px; font-weight:650 }
-    .chart-intervals button:hover, .chart-ranges button:hover, #key-levels-toggle:hover, #bollinger-toggle:hover { background:#f3f7f6; color:#244841 }
-    .chart-intervals button.active, .chart-ranges button.active, #key-levels-toggle.active, #bollinger-toggle.active { background:#eaf4ef; border-color:#b8d8c9; color:#176d5d }
+    .chart-selectors { display:flex; flex-wrap:wrap; align-items:end; gap:14px 24px }
+    .chart-control-group { display:grid; align-content:start; gap:6px }
+    .chart-intervals { display:flex; gap:3px; padding:3px; border:1px solid #dce5e3; border-radius:8px; background:#f5f8f7 }
+    .chart-intervals button { min-height:32px; padding:6px 11px; background:transparent; color:#61747a; border:0; border-radius:5px; font-size:12px; font-weight:650 }
+    .chart-intervals button:hover { background:#eaf1ef; color:#244841 }
+    .chart-intervals button.active { background:#fff; color:#176d5d; box-shadow:0 1px 4px #143c391c }
+    .chart-range { min-width:158px }
+    .chart-overlay-options { display:flex; flex-wrap:wrap; align-items:center; gap:8px 16px; min-height:38px }
+    .chart-overlay-options label { display:flex; align-items:center; gap:7px; color:#415960; font-size:12px; font-weight:600; white-space:nowrap; cursor:pointer }
+    .chart-overlay-options input { width:15px; height:15px; margin:0; accent-color:#176d5d; cursor:pointer }
+    .chart-overlay-options input:focus-visible { outline:3px solid #62b4a0; outline-offset:2px }
     .chart-readout { color:#60777b; font-size:12px; font-variant-numeric:tabular-nums; height:32px; width:100%; min-width:0; display:flex; align-items:center; flex-wrap:nowrap; gap:18px; white-space:nowrap; overflow-x:auto; overflow-y:hidden }
     .chart-readout span { flex:none }
     .chart-area { flex:1; min-height:220px; display:flex; flex-direction:column; background:#f8faf9; border:1px solid #e1e9e6; border-radius:8px; overflow:hidden }
@@ -109,6 +125,7 @@
     .note { color:#819197; line-height:1.6; font-size:12px; margin:24px 0 0; max-width:1000px }
     @media (max-width:1000px) { .card-main { grid-template-columns:minmax(160px,1.3fr) minmax(160px,1fr) minmax(90px,.6fr) auto; gap:16px } .card-main .signal-metric { display:none } dl { grid-template-columns:repeat(3,minmax(0,1fr)) } }
     @media (max-width:700px) { main { padding-top:30px } .page-heading { margin-bottom:20px } .market-label { display:none } .summary { grid-template-columns:repeat(2,minmax(0,1fr)); margin-bottom:27px } .status { flex-wrap:wrap; gap:9px 12px } .status-divider { display:none } .status-time { margin-left:0; text-align:left; width:100% } .card-main { grid-template-columns:minmax(0,1fr) auto; gap:12px; padding:16px } .mini-chart { grid-column:1 / -1; grid-row:2; height:86px } .card-main .price-metric { display:block; grid-column:1; grid-row:3 } .card-main .signal-metric { display:block; grid-column:2; grid-row:3; text-align:right } .card-actions { grid-column:2; grid-row:1 } .card-detail { padding:0 16px } dl { grid-template-columns:repeat(2,minmax(0,1fr)) } }
+    @media (max-width:700px) { .tabs { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px } .tabs button { min-width:0; min-height:48px; white-space:normal; text-align:left; font-size:12px; line-height:1.25 } .tabs .tab-count { margin-left:4px } .subfilter { width:100% } }
     @media (max-width:600px) { .site-header-inner { align-items:flex-start; flex-wrap:wrap; gap:12px } .controls { width:100%; justify-content:flex-start } .controls button { padding:8px 9px; font-size:11px } .brand-subtitle { display:none } .chart-panel { padding:14px; gap:10px } .chart-dialog { width:100vw; height:100vh; border-radius:0 } .chart-heading h2 { font-size:20px } .price-pane { flex:6 } .macd-pane { flex:4 } }
   </style>
 </head>
@@ -120,19 +137,38 @@
     </div>
   </header>
   <main>
-    <div class="page-heading"><div><p class="eyebrow">Binance · USDT spot</p><h1>Market signals</h1><p>Monthly pattern screening and momentum watchlist.</p></div><span class="market-label">Monthly candles · MACD 12 / 26 / 9</span></div>
+    <div class="page-heading"><div><p class="eyebrow">Binance · USDT spot</p><h1>Market signals</h1><p>Monthly patterns, key levels and momentum.</p></div><span class="market-label">Monthly candles · MACD 12 / 26 / 9</span></div>
     <div class="status" id="status" role="status">Starting…</div>
     <section class="summary" id="summary" aria-label="Scan summary"></section>
     <div class="results-heading"><h2>Screening results</h2><span class="result-count" id="result-count"></span></div>
     <div class="tabs" role="tablist" aria-label="Signal category">
-      <button data-filter="all" class="active" role="tab" aria-selected="true">All matches</button>
-      <button data-filter="near breakout" role="tab" aria-selected="false">Near breakout</button>
-      <button data-filter="breaking out" role="tab" aria-selected="false">Breaking out</button>
-      <button data-filter="short-base breakout" role="tab" aria-selected="false">Short base</button>
-      <button data-filter="watchlist" role="tab" aria-selected="false">Early MACD watchlist</button>
+      <button id="patterns-tab" data-view="patterns" class="active" role="tab" aria-controls="cards" aria-selected="true">Patterns</button>
+      <button id="levels-tab" data-view="key_levels" role="tab" aria-controls="cards" aria-selected="false">Key levels</button>
+      <button id="macd-tab" data-view="watchlist" role="tab" aria-controls="cards" aria-selected="false">MACD watch</button>
     </div>
-    <section id="cards" aria-live="polite"></section>
-    <p class="note">Triangle matches use a multiyear descending upper line. Short-base breakouts have a shorter flat floor and a current price above the prior eight-month high; they are labelled separately. The early MACD watchlist only tracks negative histograms rising toward zero. These are screening results, not buy recommendations. The triangle fit score is not a profit probability. Open monthly candles can change before month close.</p>
+    <div class="subfilters">
+      <div class="subfilter" id="pattern-subfilter">
+        <label for="pattern-filter">Pattern type</label>
+        <select id="pattern-filter">
+          <option value="all">All patterns</option>
+          <option value="near breakout">Near breakout</option>
+          <option value="breaking out">Breaking out</option>
+          <option value="short-base breakout">Short base</option>
+        </select>
+      </div>
+      <div class="subfilter" id="level-subfilter" hidden>
+        <label for="level-filter">Price movement</label>
+        <select id="level-filter">
+          <option value="all">All directions</option>
+          <option value="Crossed above">Crossed above</option>
+          <option value="Crossed below">Crossed below</option>
+          <option value="Approaching from below">Approaching from below</option>
+          <option value="Approaching from above">Approaching from above</option>
+        </select>
+      </div>
+    </div>
+    <section id="cards" role="tabpanel" aria-labelledby="patterns-tab" aria-live="polite" tabindex="0"></section>
+    <p class="note">Triangle matches use a multiyear descending upper line. Short-base breakouts have a shorter flat floor and a current price above the prior eight-month high. Monthly key levels flag a close crossing a prior swing level in either direction, or moving within 3% of one. The early MACD watchlist tracks negative histograms rising toward zero. These are screening results, not buy recommendations. Open monthly candles can change before month close.</p>
   </main>
   <dialog class="chart-dialog" id="chart-dialog" aria-labelledby="chart-title">
     <div class="chart-panel">
@@ -142,20 +178,31 @@
       </div>
       <div class="chart-tools">
         <div class="chart-selectors">
-          <div class="chart-intervals" aria-label="Candle interval">
-            <button type="button" data-interval="1d">Daily</button>
-            <button type="button" data-interval="1w">Weekly</button>
-            <button type="button" data-interval="1M" class="active">Monthly</button>
-            <button type="button" data-interval="1Y">Yearly</button>
+          <div class="chart-control-group">
+            <span class="chart-control-label" id="interval-label">Candle timeframe</span>
+            <div class="chart-intervals" role="group" aria-labelledby="interval-label">
+              <button type="button" data-interval="1d">Daily</button>
+              <button type="button" data-interval="1w">Weekly</button>
+              <button type="button" data-interval="1M" class="active">Monthly</button>
+              <button type="button" data-interval="1Y">Yearly</button>
+            </div>
           </div>
-          <div class="chart-ranges" aria-label="Chart date range">
-            <button type="button" data-range="all" class="active">All</button>
-            <button type="button" data-range="5">5 years</button>
-            <button type="button" data-range="2">2 years</button>
-            <button type="button" data-range="1">1 year</button>
+          <div class="chart-control-group">
+            <label class="chart-control-label" for="chart-range">Date range</label>
+            <select class="chart-range" id="chart-range">
+              <option value="all">Full history</option>
+              <option value="5">Past 5 years</option>
+              <option value="2">Past 2 years</option>
+              <option value="1">Past year</option>
+            </select>
           </div>
-          <button type="button" id="key-levels-toggle" aria-pressed="false" title="Show horizontal levels from visible swing highs and lows">Key levels</button>
-          <button type="button" id="bollinger-toggle" aria-pressed="true" title="Show 20-candle Bollinger Bands at two standard deviations">Bollinger bands</button>
+          <div class="chart-control-group">
+            <span class="chart-control-label" id="overlays-label">Price overlays</span>
+            <div class="chart-overlay-options" role="group" aria-labelledby="overlays-label">
+              <label title="Show horizontal levels from visible swing highs and lows"><input type="checkbox" id="key-levels-toggle"> Key levels</label>
+              <label title="Show 20-candle Bollinger Bands at two standard deviations"><input type="checkbox" id="bollinger-toggle" checked> Bollinger bands</label>
+            </div>
+          </div>
         </div>
         <div class="chart-readout"><span id="chart-readout"></span><span id="bollinger-readout"></span><span id="macd-readout"></span></div>
       </div>
@@ -163,7 +210,7 @@
         <div class="chart-pane price-pane"><canvas id="full-chart" aria-label="Full monthly candlestick chart"></canvas></div>
         <div class="chart-pane macd-pane"><canvas id="macd-chart" aria-label="Monthly MACD indicator with line, signal, and histogram"></canvas></div>
       </div>
-      <div class="chart-legend"><span id="support-legend" style="--line:#94aaa8">Support</span><span id="triangle-legend" style="--line:#648da8">Triangle boundary</span><span id="base-legend" style="--line:#788bb2">Base high</span><span id="key-levels-below" style="--line:#278569" hidden>Level below price</span><span id="key-levels-above" style="--line:#a97835" hidden>Level above price</span><span id="bollinger-legend" style="--line:#7477a3">Bollinger bands · 20, 2</span><span style="--line:#b27332">MACD</span><span style="--line:#8a78a7">Signal</span><span style="--line:#23866e">Histogram</span></div>
+      <div class="chart-legend"><span id="support-legend" style="--line:#94aaa8">Support</span><span id="triangle-legend" style="--line:#648da8">Triangle boundary</span><span id="base-legend" style="--line:#788bb2">Base high</span><span id="signal-level-legend" style="--line:#a97835" hidden>Scanned monthly level</span><span id="key-levels-below" style="--line:#278569" hidden>Level below price</span><span id="key-levels-above" style="--line:#a97835" hidden>Level above price</span><span id="bollinger-legend" style="--line:#7477a3">Bollinger bands · 20, 2</span><span style="--line:#b27332">MACD</span><span style="--line:#8a78a7">Signal</span><span style="--line:#23866e">Histogram</span></div>
     </div>
   </dialog>
   <script src="/key_levels.js"></script>
@@ -182,6 +229,7 @@
     const chartReadout = document.querySelector('#chart-readout');
     const bollingerReadout = document.querySelector('#bollinger-readout');
     const macdReadout = document.querySelector('#macd-readout');
+    const chartRange = document.querySelector('#chart-range');
     const keyLevelsToggle = document.querySelector('#key-levels-toggle');
     const bollingerToggle = document.querySelector('#bollinger-toggle');
     let showKeyLevels = false;
@@ -192,7 +240,7 @@
     }
     catch (error) { /* Browser storage may be disabled. */ }
     let activeChart = null;
-    let filter = 'all', firstLoad = true, previousIds = new Set();
+    let view = 'patterns', latestData = null, firstLoad = true, previousIds = new Set();
     const chartColors = {
       surface:'#f8faf9', grid:'#e1e9e6', axis:'#7b8f93', text:'#4e686e',
       up:'#23866e', down:'#c47771', support:'#94aaa8', boundary:'#648da8',
@@ -208,15 +256,13 @@
       return node;
     }
     function updateKeyLevelsToggle() {
-      keyLevelsToggle.classList.toggle('active', showKeyLevels);
-      keyLevelsToggle.setAttribute('aria-pressed', String(showKeyLevels));
+      keyLevelsToggle.checked = showKeyLevels;
       document.querySelector('#key-levels-below').hidden = !showKeyLevels;
       document.querySelector('#key-levels-above').hidden = !showKeyLevels;
     }
     updateKeyLevelsToggle();
     function updateBollingerToggle() {
-      bollingerToggle.classList.toggle('active', showBollingerBands);
-      bollingerToggle.setAttribute('aria-pressed', String(showBollingerBands));
+      bollingerToggle.checked = showBollingerBands;
       document.querySelector('#bollinger-legend').hidden = !showBollingerBands ||
         activeChart?.bollinger?.length !== activeChart?.bars?.length || !activeChart?.bollinger?.some(Boolean);
     }
@@ -226,13 +272,20 @@
       canvas.width = width * ratio; canvas.height = height * ratio;
       const ctx = canvas.getContext('2d'); ctx.scale(ratio, ratio);
       const bars = match.candles, logs = bars.flatMap(b => [Math.log(b.h), Math.log(b.l)]);
-      const lo = Math.min(...logs, ...(match.support ? [Math.log(match.support)] : [])), hi = Math.max(...logs), span = hi - lo || 1;
+      const levelLog = match.level_price > 0 ? [Math.log(match.level_price)] : [];
+      const lo = Math.min(...logs, ...(match.support ? [Math.log(match.support)] : []), ...levelLog);
+      const hi = Math.max(...logs, ...levelLog), span = hi - lo || 1;
       const x = i => 10 + i / Math.max(1, bars.length - 1) * (width - 20);
       const y = price => height - 12 - (Math.log(price) - lo) / span * (height - 24);
       ctx.fillStyle = '#f5f8f7'; ctx.fillRect(0, 0, width, height);
       if (match.support) {
         ctx.setLineDash([4, 4]); ctx.strokeStyle = '#94aaa8'; ctx.lineWidth = 1;
         ctx.beginPath(); ctx.moveTo(10, y(match.support)); ctx.lineTo(width - 10, y(match.support)); ctx.stroke();
+        ctx.setLineDash([]);
+      }
+      if (match.level_price > 0) {
+        ctx.setLineDash([5, 3]); ctx.strokeStyle = match.level_price < match.price ? '#278569' : '#a97835'; ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(10, y(match.level_price)); ctx.lineTo(width - 10, y(match.level_price)); ctx.stroke();
         ctx.setLineDash([]);
       }
       bars.forEach((b, i) => {
@@ -412,6 +465,10 @@
       const x = index => left + (index - first + .5) / visible.length * (right - left);
       const y = price => bottom - (Math.log(price) - lower) / (upper - lower) * (bottom - top);
       const levelLabels = [];
+      if (activeChart.interval === '1M' && match.level_price > 0)
+        levelLabels.push({py:y(match.level_price), price:match.level_price,
+          color:match.level_price < bars.at(-1).c ? chartColors.below : chartColors.above,
+          signal:true});
       if (showKeyLevels) {
         const lastClose = bars.at(-1).c;
         if (activeChart.levelCache?.bars !== bars || activeChart.levelCache.first !== first)
@@ -485,7 +542,8 @@
         ctx.stroke(); ctx.setLineDash([]);
       }
       for (const label of levelLabels) {
-        ctx.strokeStyle = label.color; ctx.lineWidth = 1.5; ctx.setLineDash([8, 5]);
+        ctx.strokeStyle = label.color; ctx.lineWidth = label.signal ? 2.5 : 1.5;
+        ctx.setLineDash(label.signal ? [] : [8, 5]);
         ctx.beginPath(); ctx.moveTo(left, label.py); ctx.lineTo(right, label.py); ctx.stroke();
         ctx.setLineDash([]);
       }
@@ -527,6 +585,10 @@
       document.querySelector('#support-legend').hidden = !monthly || !(chart.match.support > 0);
       document.querySelector('#triangle-legend').hidden = !monthly || chart.match.stage === 'short-base breakout' || !chart.match.resistance;
       document.querySelector('#base-legend').hidden = !monthly || chart.match.stage !== 'short-base breakout';
+      const signalLegend = document.querySelector('#signal-level-legend');
+      signalLegend.hidden = !monthly || !(chart.match.level_price > 0);
+      if (!signalLegend.hidden) signalLegend.style.setProperty('--line',
+        chart.match.level_price < chart.match.price ? chartColors.below : chartColors.above);
       for (const button of document.querySelectorAll('[data-interval]')) {
         button.classList.toggle('active', button.dataset.interval === interval);
         button.setAttribute('aria-pressed', button.dataset.interval === interval);
@@ -601,24 +663,21 @@
       const chart = {match, scannedBars:bars, bars, macd:macdSeries(bars), bollinger:bollingerBandsForBars(bars),
         interval:'1M', range:'all', hover:-1, cache:{}, pending:{}, message:''};
       activeChart = chart;
-      for (const button of document.querySelectorAll('[data-range]')) {
-        button.classList.toggle('active', button.dataset.range === 'all');
-        button.setAttribute('aria-pressed', button.dataset.range === 'all');
-      }
+      chartRange.value = 'all';
       chartDialog.showModal();
       loadChartInterval(chart, '1M');
       requestAnimationFrame(drawFullChart);
     }
     document.querySelector('#chart-close').onclick = () => chartDialog.close();
-    keyLevelsToggle.onclick = () => {
-      showKeyLevels = !showKeyLevels;
+    keyLevelsToggle.onchange = () => {
+      showKeyLevels = keyLevelsToggle.checked;
       try { localStorage.setItem('triangle-watch-key-levels', String(showKeyLevels)); }
       catch (error) { /* The toggle still works for this page. */ }
       updateKeyLevelsToggle();
       drawFullChart();
     };
-    bollingerToggle.onclick = () => {
-      showBollingerBands = !showBollingerBands;
+    bollingerToggle.onchange = () => {
+      showBollingerBands = bollingerToggle.checked;
       try { localStorage.setItem('triangle-watch-bollinger-bands', String(showBollingerBands)); }
       catch (error) { /* The toggle still works for this page. */ }
       updateBollingerToggle();
@@ -629,15 +688,11 @@
     document.querySelectorAll('[data-interval]').forEach(button => button.onclick = () => {
       if (activeChart) loadChartInterval(activeChart, button.dataset.interval);
     });
-    document.querySelectorAll('[data-range]').forEach(button => button.onclick = () => {
+    chartRange.onchange = () => {
       if (!activeChart) return;
-      activeChart.range = button.dataset.range; activeChart.hover = -1;
-      document.querySelectorAll('[data-range]').forEach(item => {
-        item.classList.toggle('active', item === button);
-        item.setAttribute('aria-pressed', item === button);
-      });
+      activeChart.range = chartRange.value; activeChart.hover = -1;
       drawFullChart();
-    });
+    };
     function moveChartPointer(event) {
       if (!activeChart || !activeChart.bars.length) return;
       const bars = activeChart.bars;
@@ -655,6 +710,7 @@
     }
     new ResizeObserver(drawFullChart).observe(document.querySelector('#chart-area'));
     function card(match) {
+      const level = match.stage === 'monthly key level';
       const watch = !match.stage;
       const shortBase = match.stage === 'short-base breakout';
       const article = el('article', 'result-card');
@@ -664,7 +720,10 @@
       const symbol = el('h3');
       symbol.append(document.createTextNode(match.symbol.replace(/USDT$/, '')), el('span', 'symbol-pair', ' / USDT'));
       const sub = el('div', 'head-sub');
-      sub.append(el('span', 'badge ' + (watch ? 'watch' : shortBase ? 'base' : match.stage === 'breaking out' ? 'breaking' : ''), watch ? 'Early MACD' : match.stage));
+      const badgeClass = level ? (match.level_signal === 'Crossed above' ? 'level-up' :
+        match.level_signal === 'Crossed below' ? 'level-down' : 'level-near') :
+        watch ? 'watch' : shortBase ? 'base' : match.stage === 'breaking out' ? 'breaking' : '';
+      sub.append(el('span', 'badge ' + badgeClass, level ? match.level_signal : watch ? 'Early MACD' : match.stage));
       if (match.provisional) sub.append(el('span', 'provisional', 'Open month'));
       head.append(symbol, sub);
       main.append(head);
@@ -676,7 +735,8 @@
       main.append(price);
       const signal = el('div', 'signal-metric');
       let signalLabel, signalValue;
-      if (watch) { signalLabel = 'Closer to zero'; signalValue = match.improvement_pct.toFixed(0) + '%'; }
+      if (level) { signalLabel = 'From monthly level'; signalValue = (match.distance_pct > 0 ? '+' : '') + match.distance_pct.toFixed(1) + '%'; }
+      else if (watch) { signalLabel = 'Closer to zero'; signalValue = match.improvement_pct.toFixed(0) + '%'; }
       else if (shortBase) { signalLabel = 'Above 8-month high'; signalValue = Math.abs(match.distance_to_resistance_pct).toFixed(1) + '%'; }
       else if (match.stage === 'breaking out') { signalLabel = 'Above boundary'; signalValue = Math.abs(match.distance_to_resistance_pct).toFixed(1) + '%'; }
       else { signalLabel = 'To boundary'; signalValue = match.distance_to_resistance_pct.toFixed(1) + '%'; }
@@ -692,7 +752,12 @@
       details.append(el('summary', '', 'Signal details'));
       const body = el('div', 'detail-body');
       const dl = el('dl');
-      const metrics = watch ? [
+      const metrics = level ? [
+        ['Monthly level', number(match.level_price)], ['Last price', number(match.price)],
+        ['Prior monthly close', number(match.previous_price)],
+        ['Distance to level', (match.distance_pct > 0 ? '+' : '') + match.distance_pct.toFixed(1) + '%'],
+        ['Swing tests', String(match.level_touches)], ['Direction', match.level_signal]
+      ] : watch ? [
         ['Price', number(match.price)], ['Monthly MACD histogram', number(match.macd_histogram)],
         ['Prior histogram', number(match.prior_macd_histogram)],
         ['Closer to zero in 2 months', match.improvement_pct.toFixed(0) + '%'],
@@ -728,6 +793,7 @@
       status.replaceChildren();
       const watchlist = data.watchlist || [];
       const matches = data.matches || [];
+      const keyLevels = data.key_levels || [];
       const triangles = matches.filter(m => m.stage !== 'short-base breakout').length;
       const bases = matches.length - triangles;
       const health = el('div', 'status-health');
@@ -736,52 +802,78 @@
         el('span', 'status-time', data.updated_at ? 'Updated ' + new Date(data.updated_at).toLocaleString() : 'Awaiting first scan'));
       if (data.last_error) status.append(el('span', 'error', data.last_error));
       summary.replaceChildren();
-      for (const [value, label] of [[triangles, 'Triangle matches'], [bases, 'Short-base breakouts'], [watchlist.length, 'Early MACD watchlist'], [data.universe, 'Markets in scan']]) {
+      for (const [value, label] of [[triangles, 'Triangle matches'], [bases, 'Short-base breakouts'], [keyLevels.length, 'Monthly key levels'], [watchlist.length, 'Early MACD watchlist']]) {
         const item = el('div', 'summary-item'); item.append(el('strong', '', String(value)), el('span', '', label)); summary.append(item);
       }
       scanButton.disabled = data.status === 'Scanning';
-      const counts = {'all':matches.length, 'near breakout':matches.filter(m => m.stage === 'near breakout').length,
-        'breaking out':matches.filter(m => m.stage === 'breaking out').length, 'short-base breakout':bases, 'watchlist':watchlist.length};
-      document.querySelectorAll('[data-filter]').forEach(button => {
+      const counts = {patterns:matches.length, key_levels:keyLevels.length, watchlist:watchlist.length};
+      document.querySelectorAll('[data-view]').forEach(button => {
         const count = button.querySelector('.tab-count') || el('span', 'tab-count');
-        count.textContent = String(counts[button.dataset.filter]);
+        count.textContent = String(counts[button.dataset.view]);
         if (!count.parentNode) button.append(count);
       });
-      const visible = filter === 'watchlist' ? watchlist : matches.filter(m => filter === 'all' || m.stage === filter);
+      document.querySelector('.subfilters').hidden = view === 'watchlist';
+      document.querySelector('#pattern-subfilter').hidden = view !== 'patterns';
+      document.querySelector('#level-subfilter').hidden = view !== 'key_levels';
+      cards.setAttribute('aria-labelledby', view === 'patterns' ? 'patterns-tab' :
+        view === 'key_levels' ? 'levels-tab' : 'macd-tab');
+      const patternFilter = document.querySelector('#pattern-filter').value;
+      const levelFilter = document.querySelector('#level-filter').value;
+      const visible = view === 'watchlist' ? watchlist : view === 'key_levels' ?
+        keyLevels.filter(m => levelFilter === 'all' || m.level_signal === levelFilter) :
+        matches.filter(m => patternFilter === 'all' || m.stage === patternFilter);
       resultCount.textContent = visible.length + (visible.length === 1 ? ' result' : ' results');
-      const signature = filter + '|' + JSON.stringify(visible) + '|' + data.status;
+      const signature = view + '|' + patternFilter + '|' + levelFilter + '|' + JSON.stringify(visible) + '|' + data.status;
       if (signature !== render.signature) {
         const expanded = new Set([...cards.querySelectorAll('.result-card')].filter(node => node.querySelector('details')?.open).map(node => node.dataset.symbol));
         cards.replaceChildren(...visible.map(card));
         for (const node of cards.querySelectorAll('.result-card')) if (expanded.has(node.dataset.symbol)) node.querySelector('details').open = true;
-        if (!visible.length) cards.append(el('p', 'empty', data.status === 'Scanning' ? 'Scanning markets…' : 'No signals in this category.'));
+        if (!visible.length) {
+          const levelEmpty = {
+            'Crossed above':'No assets crossed above a monthly key level in this scan.',
+            'Crossed below':'No assets crossed below a monthly key level in this scan.',
+            'Approaching from below':'No assets are approaching a monthly key level from below in this scan.',
+            'Approaching from above':'No assets are approaching a monthly key level from above in this scan.'
+          };
+          const emptyMessage = data.status === 'Scanning' ? 'Scanning markets…' :
+            view === 'key_levels' && levelFilter !== 'all' ? levelEmpty[levelFilter] :
+            view === 'patterns' && patternFilter !== 'all' ? 'No ' + patternFilter + ' signals in this scan.' :
+            view === 'watchlist' ? 'No early MACD signals in this scan.' : 'No signals in this view.';
+          cards.append(el('p', 'empty', emptyMessage));
+        }
         render.signature = signature;
       }
-      const allEntries = matches.concat(watchlist);
-      const identity = m => m.symbol + ':' + m.month + ':' + (m.stage || 'early MACD');
+      const allEntries = matches.concat(watchlist, keyLevels);
+      const identity = m => m.symbol + ':' + m.month + ':' + (m.level_signal || m.stage || 'early MACD') +
+        (m.level_price ? ':' + m.level_price : '');
       const ids = new Set(allEntries.map(identity));
       if (!firstLoad && 'Notification' in window && Notification.permission === 'granted') {
         for (const match of allEntries) {
           const id = identity(match);
-          if (!previousIds.has(id)) new Notification(match.symbol + ' · ' + (match.stage || 'early MACD watchlist'), {body: match.reason});
+          if (!previousIds.has(id)) new Notification(match.symbol + ' · ' + (match.level_signal || match.stage || 'early MACD watchlist'), {body: match.reason});
         }
       }
       previousIds = ids; firstLoad = false;
     }
     async function refresh() {
-      try { const response = await fetch('/api/state'); render(await response.json()); }
+      try { const response = await fetch('/api/state'); latestData = await response.json(); render(latestData); }
       catch (error) { status.textContent = 'Cannot reach the scanner: ' + error.message; }
     }
     scanButton.onclick = async () => { scanButton.disabled = true; await fetch('/api/scan', {method:'POST'}); await refresh(); };
     notifyButton.onclick = async () => { if (!('Notification' in window)) return; await Notification.requestPermission(); notifyButton.textContent = Notification.permission === 'granted' ? 'Alerts on' : 'Enable alerts'; };
-    document.querySelectorAll('[data-filter]').forEach(button => button.onclick = () => {
-      filter = button.dataset.filter;
-      document.querySelectorAll('[data-filter]').forEach(b => { b.classList.toggle('active', b === button); b.setAttribute('aria-selected', String(b === button)); });
-      refresh();
+    document.querySelectorAll('[data-view]').forEach(button => button.onclick = () => {
+      view = button.dataset.view;
+      document.querySelectorAll('[data-view]').forEach(item => {
+        item.classList.toggle('active', item === button);
+        item.setAttribute('aria-selected', String(item === button));
+      });
+      if (latestData) render(latestData);
     });
+    for (const select of document.querySelectorAll('.subfilter select'))
+      select.onchange = () => { if (latestData) render(latestData); };
     document.querySelector('.tabs').addEventListener('keydown', event => {
       if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
-      const buttons = [...document.querySelectorAll('[data-filter]')];
+      const buttons = [...document.querySelectorAll('[data-view]')];
       const current = buttons.indexOf(document.activeElement);
       if (current < 0) return;
       event.preventDefault();
