@@ -8,21 +8,6 @@ turned positive**. It also labels shorter flat-base breakouts separately. An
 early MACD watchlist shows coins whose histogram is still negative but rising
 toward zero. It uses monthly price and volume candles, not screenshots.
 
-## Screenshots
-
-These show a scan from 30 September 2026. Prices and matches change as the
-monthly candles update.
-
-**Pattern results:** NEAR's triangle breakout appears alongside shorter base
-breakouts, including PHA.
-
-![Pattern results with NEARUSDT, UNIUSDT, PHAUSDT, and RUNEUSDT](docs/screenshots/pattern-results.jpg)
-
-**Early MACD watchlist:** coins whose monthly MACD histogram is still negative
-but rising toward zero.
-
-![Early MACD watchlist with monthly charts and histogram values](docs/screenshots/early-macd-watchlist.jpg)
-
 ## Run
 
 ```sh
@@ -34,13 +19,20 @@ automatically and repeats every two hours. Select **Enable browser alerts** to
 get notifications while the dashboard is open. No exchange account, API key,
 or third-party package is required.
 
-Select **View full chart** on a result to switch between daily, weekly,
+The dashboard shows scan status, category totals, and compact result rows.
+Choose a category to narrow the list, or expand **Signal details** on a row for
+the full metrics and scanner explanation. Select **View chart** to switch between daily, weekly,
 monthly, and yearly candles inside the dashboard. Daily and weekly history is
 fetched from Binance when selected; yearly candles are assembled from monthly
 history. These chart candles are held in the open dashboard and are not saved
 to `scan_state.json`; scanner results still use monthly data. The chart includes
 date and price scales, time ranges, candle values,
 and a 12/26/9 MACD panel recalculated for the selected candle interval.
+The price chart also shows Bollinger Bands based on the last 20 closes and two
+population standard deviations. Use **Bollinger bands** to hide or restore the
+overlay; the setting is remembered in the browser. The first 19 candles have
+no band values, and short yearly histories may have no bands at all. A lower
+band at zero or below is omitted from the logarithmic price plot.
 Scanner support and boundary lines appear on monthly candles, the interval
 used for screening. MACD needs at least 36 candles, so yearly MACD may be
 unavailable. If Binance history cannot be loaded, monthly charts use the

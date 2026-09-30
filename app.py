@@ -129,10 +129,11 @@ class Handler(BaseHTTPRequestHandler):
             }).encode()
             self.send_response(200)
             self.send_header("Content-Type", "application/json; charset=utf-8")
-        elif request.path in ("/", "/index.html", "/key_levels.js"):
-            payload = (ROOT / ("key_levels.js" if request.path == "/key_levels.js" else "index.html")).read_bytes()
+        elif request.path in ("/", "/index.html", "/key_levels.js", "/bollinger_bands.js"):
+            filename = request.path.lstrip("/") if request.path.endswith(".js") else "index.html"
+            payload = (ROOT / filename).read_bytes()
             self.send_response(200)
-            self.send_header("Content-Type", "application/javascript; charset=utf-8" if request.path == "/key_levels.js"
+            self.send_header("Content-Type", "application/javascript; charset=utf-8" if request.path.endswith(".js")
                              else "text/html; charset=utf-8")
         else:
             self.send_error(404)
