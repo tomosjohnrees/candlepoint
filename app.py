@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -34,6 +35,7 @@ state = {
     "comparison_available": False,
 }
 RESULT_GROUPS = ("matches", "watchlist", "key_levels", "hourly_extremes", "btc_weekly")
+SYMBOL_PATTERN = re.compile(r"[A-Z0-9]{1,30}(?:USDT|BTC)\Z")
 
 
 def signal_identity(group: str, item: dict) -> tuple:
@@ -174,6 +176,23 @@ class Handler(BaseHTTPRequestHandler):
                 payload = json.dumps(state).encode()
             self.send_response(200)
             self.send_header("Content-Type", "application/json; charset=utf-8")
+        elif request.path == "/api/coin":
+            symbols = parse_qs(request.query).get("symbol", [])
+            symbol = symbols[0] if len(symbols) == 1 else ""
+            if not SYMBOL_PATTERN.fullmatch(symbol):
+                self.send_error(400, "Invalid symbol")
+                return
+            with lock:
+                payload = json.dumps({
+                    "symbol": symbol,
+                    "status": state["status"],
+                    "updated_at": state["updated_at"],
+                    "signals": [{"group": group, "match": item}
+                                for group in RESULT_GROUPS
+                                for item in state.get(group, []) if item["symbol"] == symbol],
+                }).encode()
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json; charset=utf-8")
         elif request.path == "/api/chart":
             query = parse_qs(request.query)
             symbols = query.get("symbol", [])
@@ -186,6 +205,10 @@ class Handler(BaseHTTPRequestHandler):
             with lock:
                 available = any(item["symbol"] == symbol for group in RESULT_GROUPS
                                 for item in state.get(group, []))
+                if not available and symbol.endswith("USDT"):
+                    btc_pair = symbol[:-4] + "BTC"
+                    available = any(item["symbol"] == btc_pair
+                                    for item in state.get("btc_weekly", []))
             if not available:
                 self.send_error(404, "Chart unavailable")
                 return
@@ -201,8 +224,15 @@ class Handler(BaseHTTPRequestHandler):
             }).encode()
             self.send_response(200)
             self.send_header("Content-Type", "application/json; charset=utf-8")
+        elif request.path.startswith("/coin/"):
+            if not SYMBOL_PATTERN.fullmatch(request.path[len("/coin/"):]):
+                self.send_error(404)
+                return
+            payload = (ROOT / "coin.html").read_bytes()
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html; charset=utf-8")
         elif request.path in ("/", "/index.html", "/patterns", "/key-levels", "/macd-watch", "/hourly-extremes", "/btc-weekly",
-                              "/key_levels.js", "/bollinger_bands.js"):
+                              "/key_levels.js", "/bollinger_bands.js", "/coin.js"):
             filename = request.path.lstrip("/") if request.path.endswith(".js") else "index.html"
             payload = (ROOT / filename).read_bytes()
             self.send_response(200)

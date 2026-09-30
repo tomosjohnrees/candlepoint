@@ -82,6 +82,18 @@ class ChartRouteTests(unittest.TestCase):
         fetch.assert_called_once_with("ETHBTC", "1w")
         handler.send_response.assert_called_once_with(200)
 
+    def test_weekly_btc_result_can_open_usdt_chart_for_same_coin(self):
+        with patch.object(app, "historical_candles", return_value=[]) as fetch:
+            handler = self.request("symbol=ETHUSDT&interval=1w")
+        fetch.assert_called_once_with("ETHUSDT", "1w")
+        handler.send_response.assert_called_once_with(200)
+
+    def test_unrelated_usdt_chart_remains_unavailable(self):
+        with patch.object(app, "historical_candles") as fetch:
+            handler = self.request("symbol=BNBUSDT&interval=1w")
+        handler.send_error.assert_called_once_with(404, "Chart unavailable")
+        fetch.assert_not_called()
+
     def test_unsupported_interval_is_rejected(self):
         with patch.object(app, "historical_candles") as fetch:
             handler = self.request("symbol=NEARUSDT&interval=1m")
@@ -125,6 +137,55 @@ class ChartRouteTests(unittest.TestCase):
                 handler.send_response.assert_called_once_with(200)
                 handler.send_header.assert_any_call("Content-Type", "text/html; charset=utf-8")
                 self.assertIn(b"Candlepoint", handler.wfile.getvalue())
+
+
+class CoinPageTests(unittest.TestCase):
+    def request(self, path):
+        handler = app.Handler.__new__(app.Handler)
+        handler.path = path
+        handler.wfile = BytesIO()
+        handler.send_response = Mock()
+        handler.send_header = Mock()
+        handler.end_headers = Mock()
+        handler.send_error = Mock()
+        handler.do_GET()
+        return handler
+
+    def test_coin_api_combines_every_signal_for_pair(self):
+        with app.lock:
+            original = {group: app.state[group] for group in app.RESULT_GROUPS}
+            original_status = app.state["status"]
+            original_updated = app.state["updated_at"]
+            for group in app.RESULT_GROUPS:
+                app.state[group] = []
+            app.state["matches"] = [{"symbol": "NEARUSDT", "stage": "near breakout"}]
+            app.state["key_levels"] = [{"symbol": "NEARUSDT", "level_signal": "Crossed above"},
+                                       {"symbol": "OTHERUSDT", "level_signal": "Crossed below"}]
+            app.state["status"] = "Ready"
+            app.state["updated_at"] = "2026-09-30T12:00:00+00:00"
+        try:
+            handler = self.request("/api/coin?symbol=NEARUSDT")
+        finally:
+            with app.lock:
+                app.state.update(original, status=original_status, updated_at=original_updated)
+        handler.send_response.assert_called_once_with(200)
+        data = json.loads(handler.wfile.getvalue())
+        self.assertEqual(data["symbol"], "NEARUSDT")
+        self.assertEqual([item["group"] for item in data["signals"]], ["matches", "key_levels"])
+        self.assertEqual(data["updated_at"], "2026-09-30T12:00:00+00:00")
+
+    def test_coin_route_and_script_are_served(self):
+        page = self.request("/coin/ETHBTC")
+        page.send_response.assert_called_once_with(200)
+        page.send_header.assert_any_call("Content-Type", "text/html; charset=utf-8")
+        self.assertIn(b"Coin details", page.wfile.getvalue())
+        script = self.request("/coin.js")
+        script.send_response.assert_called_once_with(200)
+        script.send_header.assert_any_call("Content-Type", "application/javascript; charset=utf-8")
+
+    def test_invalid_coin_path_and_query_are_rejected(self):
+        self.request("/coin/../app.py").send_error.assert_called_once_with(404)
+        self.request("/api/coin?symbol=ETHBTC&symbol=BNBBTC").send_error.assert_called_once_with(400, "Invalid symbol")
 
 
 class ScanIsolationTests(unittest.TestCase):
