@@ -10,6 +10,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from urllib.parse import parse_qs, urlsplit
 
 from binance_data import active_usdt_symbols, monthly_candles
 from triangle_scanner import detect, detect_macd_watch, detect_short_base_breakout
@@ -95,12 +96,34 @@ def scan_forever() -> None:
 
 class Handler(BaseHTTPRequestHandler):
     def do_GET(self) -> None:
-        if self.path == "/api/state":
+        request = urlsplit(self.path)
+        if request.path == "/api/state":
             with lock:
                 payload = json.dumps(state).encode()
             self.send_response(200)
             self.send_header("Content-Type", "application/json; charset=utf-8")
-        elif self.path in ("/", "/index.html"):
+        elif request.path == "/api/chart":
+            symbols = parse_qs(request.query).get("symbol", [])
+            symbol = symbols[0] if len(symbols) == 1 else ""
+            with lock:
+                available = any(item["symbol"] == symbol for group in ("matches", "watchlist")
+                                for item in state[group])
+            if not available:
+                self.send_error(404, "Chart unavailable")
+                return
+            try:
+                candles = monthly_candles(symbol, limit=1000)
+            except Exception:
+                self.send_error(502, "Could not load chart history")
+                return
+            payload = json.dumps({
+                "symbol": symbol,
+                "candles": [{"t": bar.open_time, "o": bar.open, "h": bar.high,
+                             "l": bar.low, "c": bar.close} for bar in candles],
+            }).encode()
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+        elif request.path in ("/", "/index.html"):
             payload = (ROOT / "index.html").read_bytes()
             self.send_response(200)
             self.send_header("Content-Type", "text/html; charset=utf-8")

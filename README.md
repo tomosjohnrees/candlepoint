@@ -34,6 +34,13 @@ automatically and repeats every two hours. Select **Enable browser alerts** to
 get notifications while the dashboard is open. No exchange account, API key,
 or third-party package is required.
 
+Select **View full chart** on a result to inspect its available monthly candle
+history inside the dashboard. The chart includes date and price scales,
+support and boundary lines where applicable, range controls, candle values,
+and a monthly 12/26/9 MACD panel with its line, signal, and histogram. The
+indicator uses a 35-candle warmup. If Binance history cannot be loaded, the
+chart shows the scanned window; MACD needs at least 36 monthly candles.
+
 Optional settings:
 
 ```sh

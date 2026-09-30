@@ -32,6 +32,26 @@
     dt { color:#8fa2b0; font-size:12px } dd { margin:4px 0 0; font-variant-numeric:tabular-nums; font-size:15px }
     .reason { color:#b3c1ca; line-height:1.5; font-size:13px; margin:16px 0 }
     a { color:#8fd9ff; text-decoration:none } a:hover { text-decoration:underline }
+    .card-actions { display:flex; align-items:center; flex-wrap:wrap; gap:14px }
+    .chart-dialog { width:min(1280px,96vw); height:min(900px,94vh); max-width:none; max-height:none; padding:0; border:1px solid #3c5363; border-radius:14px; background:#101a24; color:#e9f0f4; box-shadow:0 24px 90px #000b }
+    .chart-dialog::backdrop { background:#05090dcc }
+    .chart-panel { display:flex; flex-direction:column; height:100%; padding:20px; gap:14px }
+    .chart-heading { display:flex; justify-content:space-between; align-items:start; gap:12px }
+    .chart-heading h2 { font-size:23px }
+    .chart-heading p { margin:5px 0 0; color:#9aafbd; font-size:13px }
+    .chart-tools { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px }
+    .chart-ranges { display:flex; flex-wrap:wrap; gap:6px }
+    .chart-ranges button { padding:7px 10px; background:#162431; color:#bdced9; border-color:#344756 }
+    .chart-ranges button.active { background:#184335; border-color:#3f9271; color:#d5ffe8 }
+    .chart-readout { color:#b9cbd5; font-size:13px; font-variant-numeric:tabular-nums; min-height:20px; display:flex; flex-wrap:wrap; gap:4px 18px }
+    .chart-area { flex:1; min-height:220px; display:flex; flex-direction:column; background:#0d151e; border-radius:8px; overflow:hidden }
+    .chart-pane { min-height:0; position:relative }
+    .price-pane { flex:7 }
+    .macd-pane { flex:3; border-top:1px solid #344756 }
+    .chart-pane canvas { width:100%; height:100%; margin:0; border-radius:0 }
+    .chart-legend { color:#93a9b7; font-size:12px; display:flex; gap:18px; flex-wrap:wrap }
+    .chart-legend span::before { content:''; display:inline-block; width:14px; height:2px; margin:0 6px 3px 0; background:var(--line) }
+    @media (max-width:600px) { .chart-panel { padding:14px; gap:10px } .chart-dialog { width:100vw; height:100vh; border-radius:0 } .chart-heading h2 { font-size:20px } }
     .empty { color:#9aadb9; padding:35px 0 } .note { color:#8295a3; line-height:1.5; font-size:13px; margin-top:24px; max-width:850px }
   </style>
 </head>
@@ -52,11 +72,40 @@
     <section id="cards" aria-live="polite"></section>
     <p class="note">Triangle matches use a multiyear descending upper line. Short-base breakouts have a shorter flat floor and a current price above the prior eight-month high; they are labelled separately. The early MACD watchlist only tracks negative histograms rising toward zero. These are screening results, not buy recommendations. The triangle fit score is not a profit probability. Open monthly candles can change before month close.</p>
   </main>
+  <dialog class="chart-dialog" id="chart-dialog" aria-labelledby="chart-title">
+    <div class="chart-panel">
+      <div class="chart-heading">
+        <div><h2 id="chart-title"></h2><p id="chart-status"></p></div>
+        <button type="button" id="chart-close" aria-label="Close chart">Close ×</button>
+      </div>
+      <div class="chart-tools">
+        <div class="chart-ranges" aria-label="Chart date range">
+          <button type="button" data-range="all" class="active">All</button>
+          <button type="button" data-range="60">5 years</button>
+          <button type="button" data-range="24">2 years</button>
+          <button type="button" data-range="12">1 year</button>
+        </div>
+        <div class="chart-readout"><span id="chart-readout"></span><span id="macd-readout"></span></div>
+      </div>
+      <div class="chart-area" id="chart-area">
+        <div class="chart-pane price-pane"><canvas id="full-chart" aria-label="Full monthly candlestick chart"></canvas></div>
+        <div class="chart-pane macd-pane"><canvas id="macd-chart" aria-label="Monthly MACD indicator with line, signal, and histogram"></canvas></div>
+      </div>
+      <div class="chart-legend"><span id="support-legend" style="--line:#6595a5">Support</span><span id="triangle-legend" style="--line:#48a7ff">Triangle boundary</span><span id="base-legend" style="--line:#889fff">Base high</span><span style="--line:#f6b75c">MACD</span><span style="--line:#a699ff">Signal</span><span style="--line:#55d2a2">Histogram</span></div>
+    </div>
+  </dialog>
   <script>
     const cards = document.querySelector('#cards');
     const status = document.querySelector('#status');
     const scanButton = document.querySelector('#scan');
     const notifyButton = document.querySelector('#notify');
+    const chartDialog = document.querySelector('#chart-dialog');
+    const fullCanvas = document.querySelector('#full-chart');
+    const macdCanvas = document.querySelector('#macd-chart');
+    const chartStatus = document.querySelector('#chart-status');
+    const chartReadout = document.querySelector('#chart-readout');
+    const macdReadout = document.querySelector('#macd-readout');
+    let activeChart = null;
     let filter = 'all', firstLoad = true, previousIds = new Set();
     function number(value) { return Number(value).toLocaleString(undefined, {maximumSignificantDigits: 5}); }
     function el(tag, className, content) {
@@ -94,6 +143,228 @@
         ctx.lineTo(x(bars.length - 1), y(match.resistance)); ctx.stroke();
       }
     }
+    function monthLabel(timestamp) {
+      return new Date(timestamp).toLocaleDateString(undefined, {month:'short', year:'numeric', timeZone:'UTC'});
+    }
+    function scannedBars(match) {
+      const [year, month] = match.month.split('-').map(Number);
+      return match.candles.map((bar, index) => ({
+        ...bar, t: Date.UTC(year, month - match.candles.length + index, 1)
+      }));
+    }
+    function emaSeries(values, period) {
+      const alpha = 2 / (period + 1), result = [values[0]];
+      for (let i = 1; i < values.length; i++)
+        result.push(alpha * values[i] + (1 - alpha) * result[i - 1]);
+      return result;
+    }
+    function macdSeries(bars) {
+      if (bars.length < 36) return null;
+      const closes = bars.map(bar => bar.c);
+      const fast = emaSeries(closes, 12), slow = emaSeries(closes, 26);
+      const line = fast.map((value, i) => value - slow[i]);
+      const signal = emaSeries(line, 9);
+      return line.map((value, i) => i < 35 ? null : {
+        line:value, signal:signal[i], histogram:value - signal[i]
+      });
+    }
+    function drawMacdChart(first, visibleCount) {
+      const width = macdCanvas.clientWidth, height = macdCanvas.clientHeight;
+      if (!width || !height || !activeChart) return;
+      const ratio = window.devicePixelRatio || 1;
+      macdCanvas.width = Math.round(width * ratio);
+      macdCanvas.height = Math.round(height * ratio);
+      const ctx = macdCanvas.getContext('2d'); ctx.scale(ratio, ratio);
+      ctx.fillStyle = '#0d151e'; ctx.fillRect(0, 0, width, height);
+      const {bars, macd, hover} = activeChart;
+      const left = 20, right = width - 90, top = 28, bottom = height - 30;
+      ctx.font = '12px system-ui, sans-serif';
+      ctx.fillStyle = '#b9cbd5'; ctx.textAlign = 'left';
+      ctx.fillText('MACD 12 / 26 / 9', left, 18);
+      const tickEvery = Math.max(1, Math.ceil(visibleCount / Math.max(1, Math.floor((right - left) / 105))));
+      ctx.textAlign = 'center'; ctx.fillStyle = '#9aafbd';
+      for (let i = first; i < bars.length; i += tickEvery)
+        ctx.fillText(monthLabel(bars[i].t), left + (i - first + .5) / visibleCount * (right - left), height - 9);
+      if (!macd) {
+        ctx.textAlign = 'left'; ctx.fillStyle = '#9aafbd';
+        ctx.fillText('MACD needs at least 36 monthly candles', left, top + 30);
+        macdReadout.textContent = 'MACD unavailable';
+        return;
+      }
+      if ((35 - first) / visibleCount > .25) {
+        ctx.textAlign = 'left'; ctx.fillStyle = '#718796';
+        ctx.fillText('35-candle warmup', left + 8, top + 20);
+      }
+      const values = macd.slice(first).filter(Boolean);
+      const extent = Math.max(...values.flatMap(item => [Math.abs(item.line), Math.abs(item.signal), Math.abs(item.histogram)]), 1e-12) * 1.15;
+      const y = value => top + (extent - value) / (2 * extent) * (bottom - top);
+      const x = index => left + (index - first + .5) / visibleCount * (right - left);
+      ctx.strokeStyle = '#4b5c69'; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(left, y(0)); ctx.lineTo(right, y(0)); ctx.stroke();
+      ctx.textAlign = 'left'; ctx.fillStyle = '#9aafbd';
+      ctx.fillText(number(extent / 1.15), right + 8, top + 4);
+      ctx.fillText('0', right + 8, y(0) + 4);
+      ctx.fillText(number(-extent / 1.15), right + 8, bottom);
+      ctx.save(); ctx.beginPath(); ctx.rect(left, top, right - left, bottom - top); ctx.clip();
+      const bodyWidth = Math.max(1, Math.min(12, (right - left) / visibleCount * .65));
+      for (let i = first; i < bars.length; i++) {
+        const item = macd[i];
+        if (!item) continue;
+        ctx.fillStyle = item.histogram >= 0 ? '#55d2a2' : '#ec6d77';
+        ctx.fillRect(x(i) - bodyWidth / 2, Math.min(y(0), y(item.histogram)), bodyWidth,
+          Math.max(1, Math.abs(y(0) - y(item.histogram))));
+      }
+      for (const [key, color] of [['line', '#f6b75c'], ['signal', '#a699ff']]) {
+        ctx.strokeStyle = color; ctx.lineWidth = 2; ctx.beginPath();
+        let started = false;
+        for (let i = first; i < bars.length; i++) {
+          if (!macd[i]) continue;
+          if (!started) { ctx.moveTo(x(i), y(macd[i][key])); started = true; }
+          else ctx.lineTo(x(i), y(macd[i][key]));
+        }
+        if (started) ctx.stroke();
+      }
+      if (hover >= first && hover < bars.length) {
+        ctx.strokeStyle = '#e9f0f499'; ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(x(hover), top); ctx.lineTo(x(hover), bottom); ctx.stroke();
+      }
+      ctx.restore();
+      const item = macd[hover >= first && hover < bars.length ? hover : bars.length - 1];
+      macdReadout.textContent = item ? `MACD ${number(item.line)}  Signal ${number(item.signal)}  Histogram ${number(item.histogram)}` : 'MACD warming up';
+    }
+    function drawFullChart() {
+      if (!activeChart || !chartDialog.open) return;
+      const {match, bars} = activeChart;
+      const width = fullCanvas.clientWidth, height = fullCanvas.clientHeight;
+      if (!width || !height || !bars.length) return;
+      const ratio = window.devicePixelRatio || 1;
+      fullCanvas.width = Math.round(width * ratio);
+      fullCanvas.height = Math.round(height * ratio);
+      const ctx = fullCanvas.getContext('2d');
+      ctx.scale(ratio, ratio);
+      ctx.fillStyle = '#0d151e'; ctx.fillRect(0, 0, width, height);
+      const left = 20, right = width - 90, top = 18, bottom = height - 12;
+      const count = activeChart.range === 'all' ? bars.length : Number(activeChart.range);
+      const first = Math.max(0, bars.length - count);
+      const visible = bars.slice(first);
+      const low = Math.min(...visible.map(b => b.l));
+      const high = Math.max(...visible.map(b => b.h));
+      const lower = Math.log(low) - .06, upper = Math.log(high) + .06;
+      const x = index => left + (index - first + .5) / visible.length * (right - left);
+      const y = price => bottom - (Math.log(price) - lower) / (upper - lower) * (bottom - top);
+      ctx.font = '12px system-ui, sans-serif';
+      ctx.textAlign = 'left';
+      for (let step = 0; step <= 5; step++) {
+        const py = top + step / 5 * (bottom - top);
+        const price = Math.exp(upper - step / 5 * (upper - lower));
+        ctx.strokeStyle = '#263541'; ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(left, py); ctx.lineTo(right, py); ctx.stroke();
+        ctx.fillStyle = '#9aafbd'; ctx.fillText(number(price), right + 8, py + 4);
+      }
+      ctx.save();
+      ctx.beginPath(); ctx.rect(left, top, right - left, bottom - top); ctx.clip();
+      for (let i = first; i < bars.length; i++) {
+        const bar = bars[i];
+        ctx.strokeStyle = ctx.fillStyle = bar.c >= bar.o ? '#55d2a2' : '#ec6d77';
+        ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(x(i), y(bar.h)); ctx.lineTo(x(i), y(bar.l)); ctx.stroke();
+        const bodyWidth = Math.max(1, Math.min(14, (right - left) / visible.length * .65));
+        ctx.fillRect(x(i) - bodyWidth / 2, Math.min(y(bar.o), y(bar.c)), bodyWidth,
+          Math.max(1, Math.abs(y(bar.o) - y(bar.c))));
+      }
+      if (match.support > 0) {
+        ctx.setLineDash([5, 5]); ctx.strokeStyle = '#6595a5'; ctx.lineWidth = 1.5;
+        ctx.beginPath(); ctx.moveTo(left, y(match.support)); ctx.lineTo(right, y(match.support)); ctx.stroke();
+        ctx.setLineDash([]);
+      }
+      if (match.resistance > 0) {
+        ctx.strokeStyle = match.stage === 'short-base breakout' ? '#889fff' : '#48a7ff';
+        ctx.lineWidth = 2;
+        ctx.setLineDash(match.stage === 'short-base breakout' ? [6, 4] : []);
+        ctx.beginPath();
+        if (match.stage === 'short-base breakout') {
+          ctx.moveTo(left, y(match.resistance)); ctx.lineTo(right, y(match.resistance));
+        } else if (Number.isInteger(match.trend_start_index)) {
+          const end = bars.findIndex(bar => new Date(bar.t).toISOString().slice(0, 7) === match.month);
+          if (end >= 0) {
+            const start = end - match.candles.length + 1 + match.trend_start_index;
+            if (start >= 0) {
+              ctx.moveTo(x(start), y(match.trend_start_price));
+              ctx.lineTo(x(end), y(match.resistance));
+            }
+          }
+        }
+        ctx.stroke(); ctx.setLineDash([]);
+      }
+      const hover = activeChart.hover;
+      if (hover >= first && hover < bars.length) {
+        ctx.strokeStyle = '#e9f0f499'; ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(x(hover), top); ctx.lineTo(x(hover), bottom); ctx.stroke();
+      }
+      ctx.restore();
+      const bar = bars[hover >= first && hover < bars.length ? hover : bars.length - 1];
+      chartReadout.textContent = `${monthLabel(bar.t)}  ·  O ${number(bar.o)}  H ${number(bar.h)}  L ${number(bar.l)}  C ${number(bar.c)}`;
+      drawMacdChart(first, visible.length);
+    }
+    async function openChart(match) {
+      const bars = scannedBars(match);
+      const chart = {match, bars, macd:macdSeries(bars), range:'all', hover:-1};
+      activeChart = chart;
+      document.querySelector('#chart-title').textContent = match.symbol + ' · Monthly chart';
+      chartStatus.textContent = 'Loading full monthly history…';
+      document.querySelector('#support-legend').hidden = !(match.support > 0);
+      document.querySelector('#triangle-legend').hidden = match.stage === 'short-base breakout' || !match.resistance;
+      document.querySelector('#base-legend').hidden = match.stage !== 'short-base breakout';
+      document.querySelectorAll('[data-range]').forEach(button => {
+        button.classList.toggle('active', button.dataset.range === 'all');
+        button.setAttribute('aria-pressed', button.dataset.range === 'all');
+      });
+      chartDialog.showModal();
+      requestAnimationFrame(drawFullChart);
+      try {
+        const response = await fetch('/api/chart?symbol=' + encodeURIComponent(match.symbol));
+        if (!response.ok) throw new Error('History unavailable');
+        const data = await response.json();
+        if (activeChart !== chart) return;
+        if (!data.candles.length) throw new Error('History unavailable');
+        chart.bars = data.candles;
+        chart.macd = macdSeries(data.candles);
+        chart.hover = -1;
+        chartStatus.textContent = data.candles.length + ' monthly candles · ' + monthLabel(data.candles[0].t) + ' to ' + monthLabel(data.candles.at(-1).t) + ' · log price scale';
+        drawFullChart();
+      } catch (error) {
+        if (activeChart === chart) chartStatus.textContent = 'Showing scanned chart window · full history unavailable · log price scale';
+      }
+    }
+    document.querySelector('#chart-close').onclick = () => chartDialog.close();
+    chartDialog.onclose = () => { activeChart = null; };
+    chartDialog.onclick = event => { if (event.target === chartDialog) chartDialog.close(); };
+    document.querySelectorAll('[data-range]').forEach(button => button.onclick = () => {
+      if (!activeChart) return;
+      activeChart.range = button.dataset.range; activeChart.hover = -1;
+      document.querySelectorAll('[data-range]').forEach(item => {
+        item.classList.toggle('active', item === button);
+        item.setAttribute('aria-pressed', item === button);
+      });
+      drawFullChart();
+    });
+    function moveChartPointer(event) {
+      if (!activeChart) return;
+      const bars = activeChart.bars;
+      const count = activeChart.range === 'all' ? bars.length : Number(activeChart.range);
+      const first = Math.max(0, bars.length - count);
+      const canvas = event.currentTarget;
+      const width = canvas.clientWidth, right = width - 90, left = 20;
+      const offset = event.clientX - canvas.getBoundingClientRect().left;
+      activeChart.hover = offset < left || offset > right ? -1 :
+        Math.min(bars.length - 1, first + Math.floor((offset - left) / (right - left) * (bars.length - first)));
+      drawFullChart();
+    }
+    for (const canvas of [fullCanvas, macdCanvas]) {
+      canvas.onpointermove = moveChartPointer;
+      canvas.onpointerleave = () => { if (activeChart) { activeChart.hover = -1; drawFullChart(); } };
+    }
+    new ResizeObserver(drawFullChart).observe(document.querySelector('#chart-area'));
     function card(match) {
       const watch = !match.stage;
       const shortBase = match.stage === 'short-base breakout';
@@ -128,9 +399,14 @@
         const group = el('div'); group.append(el('dt', '', label), el('dd', '', value)); dl.append(group);
       }
       article.append(dl, el('p', 'reason', match.reason));
+      const actions = el('div', 'card-actions');
+      const view = el('button', '', 'View full chart');
+      view.type = 'button'; view.onclick = () => openChart(match);
+      actions.append(view);
       const link = el('a', '', 'Inspect Binance chart ↗');
       link.href = 'https://www.binance.com/en/trade/' + encodeURIComponent(match.symbol.replace(/USDT$/, '_USDT')) + '?type=spot';
-      link.target = '_blank'; link.rel = 'noopener noreferrer'; article.append(link);
+      link.target = '_blank'; link.rel = 'noopener noreferrer'; actions.append(link);
+      article.append(actions);
       requestAnimationFrame(() => plot(chart, match));
       return article;
     }
