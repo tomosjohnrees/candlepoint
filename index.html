@@ -148,7 +148,6 @@
     .empty { text-align:center; color:#71848a; padding:48px 20px; background:#fff; border:1px solid #e1e8e6; border-radius:11px; margin:0; font-size:13px }
     .route-notice { color:#825b38; background:#fff8eb; border:1px solid #eadbc2; border-radius:8px; padding:11px 14px; margin:0 0 16px; font-size:12px }
     .route-notice[hidden] { display:none }
-    .note { color:#819197; line-height:1.6; font-size:12px; margin:24px 0 0; max-width:1000px }
     @media (max-width:1000px) { .summary { grid-template-columns:repeat(3,minmax(0,1fr)) } .card-main { grid-template-columns:minmax(160px,1.3fr) minmax(160px,1fr) minmax(90px,.6fr) auto; gap:16px } .card-main .signal-metric { display:none } dl { grid-template-columns:repeat(3,minmax(0,1fr)) } }
     @media (max-width:700px) { main { padding-top:30px } .page-heading { margin-bottom:20px } .summary { grid-template-columns:repeat(2,minmax(0,1fr)); margin-bottom:27px } .status { flex-wrap:wrap; gap:9px 12px } .status-divider { display:none } .status-time { margin-left:0; text-align:left; width:100% } .card-main { grid-template-columns:minmax(0,1fr) auto; gap:12px; padding:16px } .mini-chart { grid-column:1 / -1; grid-row:2; height:86px } .card-main .price-metric { display:block; grid-column:1; grid-row:3 } .card-main .signal-metric { display:block; grid-column:2; grid-row:3; text-align:right } .card-actions { grid-column:1 / -1; grid-row:4; justify-content:flex-start } .card-detail { padding:0 16px } dl { grid-template-columns:repeat(2,minmax(0,1fr)) } }
     @media (max-width:700px) { .tabs { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px } .tabs button { min-width:0; min-height:48px; white-space:normal; text-align:left; font-size:12px; line-height:1.25 } .tabs .tab-count { margin-left:4px } .subfilter { width:100% } }
@@ -211,7 +210,6 @@
     </div>
     <p class="route-notice" id="route-notice" role="status" hidden></p>
     <section id="cards" role="tabpanel" aria-labelledby="patterns-tab" aria-live="polite" tabindex="0"></section>
-    <p class="note">Triangle matches use a multiyear descending upper line. Short-base breakouts have a shorter flat floor and a current price above the prior eight-month high. Monthly key levels flag a close crossing a prior swing level in either direction, or moving within 3% of one. The early MACD watchlist tracks negative histograms rising toward zero. The 1-hour tab requires RSI at least 80 with positive MACD in the top 5% of the previous 180 readings, or RSI at most 20 with negative MACD in the bottom 5%. BTC weekly signals flag a fresh positive weekly MACD histogram or a weekly close at least 3% above the upper Bollinger Band. These are screening results, not buy recommendations. Open candles can change before close.</p>
   </main>
   <dialog class="chart-dialog" id="chart-dialog" aria-labelledby="chart-title">
     <div class="chart-panel">
