@@ -1,5 +1,5 @@
-/* Twenty-candle simple moving average with two population standard deviations. */
-function bollingerBandsForBars(bars, period = 20, deviations = 2) {
+/* Binance's default 21-candle simple moving average with two population standard deviations. */
+function bollingerBandsForBars(bars, period = 21, deviations = 2) {
   if (!Array.isArray(bars)) return [];
   const result = Array(bars.length).fill(null);
   for (let i = period - 1; i < bars.length; i++) {

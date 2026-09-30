@@ -136,7 +136,7 @@ async function loadChart() {
     document.querySelector('#chart-note').textContent = derivedChart ?
       'BTC equivalent from ' + base + '/USDT ÷ BTC/USDT closes · calculated comparison, not a traded pair' :
       (quote === 'BTC' ? 'Direct Binance ' + base + '/BTC candles · ' : 'Green / red candles · ') +
-      'purple Bollinger bands (20, 2) · MACD below';
+      'shaded Bollinger bands (21, 2) · MACD below';
     document.querySelector('#chart-heading').textContent = base + ' / ' + quote +
       (derivedChart ? ' equivalent' : '') + ' price history';
     bands = bollingerBandsForBars(bars);
@@ -176,7 +176,7 @@ function canvasContext(canvas) {
   return {ctx, width, height};
 }
 function chartWindow() {
-  const first = chartRange.value === 'all' ? 0 : Math.max(0, bars.length - 80);
+  const first = chartRange.value === 'all' ? 0 : Math.max(0, bars.length - Number(chartRange.value));
   return {first, visible:bars.slice(first)};
 }
 function drawCharts() {
@@ -190,22 +190,37 @@ function drawCharts() {
   for (let i = first; i < bars.length; i++) {
     if (bands[i]) values.push(bands[i].upper, bands[i].lower);
   }
-  const lo = Math.min(...values.filter(value => value > 0));
+  const lo = Math.min(...values);
   const hi = Math.max(...values);
-  const min = Math.log(lo) - .03, max = Math.log(hi) + .03;
-  const y = value => bottom - (Math.log(Math.max(value, lo)) - min) / (max - min) * (bottom - top);
+  const padding = Math.max((hi - lo) * .06, Math.abs(hi) * .001, 1e-12);
+  const min = lo - padding, max = hi + padding;
+  const y = value => bottom - (value - min) / (max - min) * (bottom - top);
   const ctx = price.ctx;
   for (let tick = 0; tick <= 4; tick++) {
     const py = top + tick * (bottom - top) / 4;
     ctx.strokeStyle = '#e4ebe8'; ctx.beginPath(); ctx.moveTo(left, py); ctx.lineTo(right, py); ctx.stroke();
-    ctx.fillStyle = '#829297'; ctx.fillText(num(Math.exp(max - tick * (max - min) / 4)), right + 7, py + 4);
+    ctx.fillStyle = '#829297'; ctx.fillText(num(max - tick * (max - min) / 4), right + 7, py + 4);
   }
-  for (const [key, color] of [['upper','#7477a3'], ['middle','#a6a8c7'], ['lower','#7477a3']]) {
+  ctx.save(); ctx.beginPath(); ctx.rect(left, top, right - left, bottom - top); ctx.clip();
+  const bandIndexes = [];
+  for (let i = first; i < bars.length; i++)
+    if (bands[i] && Number.isFinite(bands[i].upper) && Number.isFinite(bands[i].lower)) bandIndexes.push(i);
+  if (bandIndexes.length > 1) {
+    ctx.beginPath();
+    for (const [position, index] of bandIndexes.entries()) {
+      if (position === 0) ctx.moveTo(x(index), y(bands[index].upper));
+      else ctx.lineTo(x(index), y(bands[index].upper));
+    }
+    for (const index of [...bandIndexes].reverse()) ctx.lineTo(x(index), y(bands[index].lower));
+    ctx.closePath(); ctx.fillStyle = '#7477a322'; ctx.fill();
+  }
+  ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+  for (const [key, color] of [['upper','#656eaa'], ['middle','#8790bb'], ['lower','#656eaa']]) {
     ctx.beginPath(); ctx.strokeStyle = color; ctx.lineWidth = key === 'middle' ? 1 : 1.4;
     let started = false;
     for (let i = first; i < bars.length; i++) {
       const value = bands[i]?.[key];
-      if (!(value > 0)) { started = false; continue; }
+      if (!Number.isFinite(value)) { started = false; continue; }
       if (started) ctx.lineTo(x(i), y(value)); else ctx.moveTo(x(i), y(value));
       started = true;
     }
@@ -226,6 +241,7 @@ function drawCharts() {
       ctx.fillRect(x(i) - bodyWidth / 2, Math.min(y(bar.o), y(bar.c)), bodyWidth, Math.max(1, Math.abs(y(bar.o) - y(bar.c))));
     }
   }
+  ctx.restore();
   for (let tick = 0; tick < 5; tick++) {
     const i = Math.min(bars.length - 1, first + Math.round(tick * (visible.length - 1) / 4));
     const label = new Date(bars[i].t).toLocaleDateString(undefined, {month:'short', year:'2-digit'});
@@ -266,7 +282,8 @@ function drawCharts() {
   readout.replaceChildren(
     node('span', '', new Date(bar.t).toLocaleDateString() + (derivedChart ? ' · BTC equivalent ' + num(bar.c) :
       ' · O ' + num(bar.o) + '  H ' + num(bar.h) + '  L ' + num(bar.l) + '  C ' + num(bar.c))),
-    node('span', '', band ? 'BB upper ' + num(band.upper) + ' · lower ' + num(band.lower) : 'BB needs 20 candles'),
+    node('span', '', band ? 'BB 21 / 2 · upper ' + num(band.upper) + ' · middle ' +
+      num(band.middle) + ' · lower ' + num(band.lower) : 'BB needs 21 candles'),
     node('span', '', currentMacd ? 'MACD ' + num(currentMacd.line) + ' · histogram ' + num(currentMacd.histogram) : 'MACD needs 36 candles')
   );
 }

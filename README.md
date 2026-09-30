@@ -28,7 +28,7 @@ Focus **Search symbol** to see every ticker with a signal in the current scan, t
 
 ## Charts
 
-Select **View chart** on any result to inspect hourly, daily, weekly, monthly, or yearly candles. The chart offers date ranges, a logarithmic price scale, a MACD 12/26/9 panel, and optional overlays for swing levels and Bollinger Bands (20 closes, two standard deviations). Monthly pattern charts also show the scanned support and triangle boundary; a monthly key-level result shows its scanned level. Hourly extreme results open on the hourly chart, and BTC-pair signals open on the weekly chart with prices quoted in BTC. For BTC-pair results, use the **BTC / USD (USDT)** switch to view the base coin's USDT market on the same timeframe. The dedicated pair page has the same quote switch and links to the full chart.
+Select **View chart** on any result to inspect hourly, daily, weekly, monthly, or yearly candles. The chart offers date ranges, a linear price scale, a MACD 12/26/9 panel, and optional overlays for swing levels and shaded Bollinger Bands (21 closes, two standard deviations, matching Binance's default). Monthly pattern charts also show the scanned support and triangle boundary; a monthly key-level result shows its scanned level. Hourly extreme results open on the hourly chart, and BTC-pair signals open on the weekly chart with prices quoted in BTC. For BTC-pair results, use the **BTC / USD (USDT)** switch to view the base coin's USDT market on the same timeframe. The dedicated pair page has the same quote switch and links to the full chart.
 
 Hourly, daily and weekly history is fetched when requested. Yearly candles are assembled from monthly data. Indicators are recalculated for the selected candle interval. Short histories may not have enough candles to display MACD or Bollinger Bands.
 
@@ -64,7 +64,7 @@ The scanner starts with active Binance USDT and BTC spot pairs and excludes stab
 - **Early MACD watch:** Require three negative monthly histogram readings that rise consecutively, at least 25% progress toward zero over two months, and a remaining gap no greater than three months at that recent pace. Assets already listed as triangle matches are excluded from this watchlist.
 - **1-hour extremes:** Require RSI at least 80 and positive MACD at or above the 95th percentile of its own previous 180 hourly readings, or RSI at most 20 and negative MACD at or below the 5th percentile. MACD is divided by price before ranking, so its displayed percent is comparable across assets. The latest hourly candle may still be open.
 - **Weekly BTC MACD:** Require the latest weekly MACD 12/26/9 histogram to be positive and the preceding week's histogram to be nonpositive. This is a first positive week, not a forecast.
-- **Weekly BTC Bollinger Band:** Require the latest weekly close to be at least 3% above the upper band, calculated from 20 weekly closes and two population standard deviations. A pair can meet both weekly conditions. Open weeks are marked as provisional.
+- **Weekly BTC Bollinger Band:** Require the latest weekly close to be at least 3% above the upper band, calculated from 21 weekly closes and two population standard deviations. A pair can meet both weekly conditions. Open weeks are marked as provisional.
 
 Signals are screening results, not forecasts or trading recommendations. The pattern fit score measures similarity to the scanner's rules; it is not a probability of profit. The thresholds have not been validated for profitability, and an open monthly candle can change a signal before month end.
 

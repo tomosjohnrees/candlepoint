@@ -13,6 +13,7 @@ from triangle_scanner import Candle, macd_histogram
 MACD_GREEN = "MACD turning green"
 ABOVE_BAND = "Above upper band"
 BAND_MARGIN = 0.03
+BAND_PERIOD = 21
 
 
 @dataclass(frozen=True)
@@ -46,9 +47,9 @@ def detect_weekly_btc(symbol: str, candles: Sequence[Candle],
     closes = [bar.close for bar in bars]
     histogram = macd_histogram(closes)
     green = histogram[-2] <= 0 < histogram[-1]
-    recent = closes[-20:]
-    middle = sum(recent) / 20
-    deviation = sqrt(sum((close - middle) ** 2 for close in recent) / 20)
+    recent = closes[-BAND_PERIOD:]
+    middle = sum(recent) / BAND_PERIOD
+    deviation = sqrt(sum((close - middle) ** 2 for close in recent) / BAND_PERIOD)
     upper = middle + 2 * deviation
     distance = (closes[-1] / upper - 1) * 100
     above_band = distance >= BAND_MARGIN * 100
@@ -62,7 +63,7 @@ def detect_weekly_btc(symbol: str, candles: Sequence[Candle],
     if green:
         reasons.append("Weekly MACD 12/26/9 histogram turned positive after a nonpositive week")
     if above_band:
-        reasons.append(f"weekly close is {distance:.1f}% above the upper Bollinger Band (20 closes, 2 standard deviations)")
+        reasons.append(f"weekly close is {distance:.1f}% above the upper Bollinger Band (21 closes, 2 standard deviations)")
     reason = "; ".join(reasons) + (" (week still open)." if provisional else ".")
     return WeeklyBtcSignal(
         symbol, "weekly BTC", signals, provisional, last.close, week,

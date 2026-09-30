@@ -247,7 +247,7 @@
             <span class="chart-control-label" id="overlays-label">Price overlays</span>
             <div class="chart-overlay-options" role="group" aria-labelledby="overlays-label">
               <label title="Show horizontal levels from visible swing highs and lows"><input type="checkbox" id="key-levels-toggle"> Key levels</label>
-              <label title="Show 20-candle Bollinger Bands at two standard deviations"><input type="checkbox" id="bollinger-toggle" checked> Bollinger bands</label>
+              <label title="Show 21-candle Bollinger Bands at two standard deviations"><input type="checkbox" id="bollinger-toggle" checked> Bollinger bands</label>
             </div>
           </div>
         </div>
@@ -257,7 +257,7 @@
         <div class="chart-pane price-pane"><canvas id="full-chart" aria-label="Full monthly candlestick chart"></canvas></div>
         <div class="chart-pane macd-pane"><canvas id="macd-chart" aria-label="Monthly MACD indicator with line, signal, and histogram"></canvas></div>
       </div>
-      <div class="chart-legend"><span id="support-legend" style="--line:#94aaa8">Support</span><span id="triangle-legend" style="--line:#648da8">Triangle boundary</span><span id="base-legend" style="--line:#788bb2">Base high</span><span id="signal-level-legend" style="--line:#a97835" hidden>Scanned monthly level</span><span id="key-levels-below" style="--line:#278569" hidden>Level below price</span><span id="key-levels-above" style="--line:#a97835" hidden>Level above price</span><span id="bollinger-legend" style="--line:#7477a3">Bollinger bands · 20, 2</span><span style="--line:#b27332">MACD</span><span style="--line:#8a78a7">Signal</span><span style="--line:#23866e">Histogram</span></div>
+      <div class="chart-legend"><span id="support-legend" style="--line:#94aaa8">Support</span><span id="triangle-legend" style="--line:#648da8">Triangle boundary</span><span id="base-legend" style="--line:#788bb2">Base high</span><span id="signal-level-legend" style="--line:#a97835" hidden>Scanned monthly level</span><span id="key-levels-below" style="--line:#278569" hidden>Level below price</span><span id="key-levels-above" style="--line:#a97835" hidden>Level above price</span><span id="bollinger-legend" style="--line:#7477a3">Bollinger bands · 21, 2</span><span style="--line:#b27332">MACD</span><span style="--line:#8a78a7">Signal</span><span style="--line:#23866e">Histogram</span></div>
     </div>
   </dialog>
   <script src="/key_levels.js"></script>
@@ -647,11 +647,14 @@
       const first = firstVisibleIndex(bars, activeChart.interval, activeChart.range);
       const visible = bars.slice(first);
       const bands = showBollingerBands ? activeChart.bollinger : null;
-      const low = Math.min(...visible.map(b => b.l));
-      const high = Math.max(...visible.map(b => b.h));
-      const lower = Math.log(low) - .06, upper = Math.log(high) + .06;
+      const plottedValues = visible.flatMap(bar => [bar.l, bar.h]);
+      if (bands) for (let i = first; i < bars.length; i++)
+        if (bands[i]) plottedValues.push(bands[i].upper, bands[i].lower);
+      const low = Math.min(...plottedValues), high = Math.max(...plottedValues);
+      const padding = Math.max((high - low) * .06, Math.abs(high) * .001, 1e-12);
+      const lower = low - padding, upper = high + padding;
       const x = index => left + (index - first + .5) / visible.length * (right - left);
-      const y = price => bottom - (Math.log(price) - lower) / (upper - lower) * (bottom - top);
+      const y = price => bottom - (price - lower) / (upper - lower) * (bottom - top);
       const levelLabels = [];
       if (activeChart.interval === '1M' && match.level_price > 0)
         levelLabels.push({py:y(match.level_price), price:match.level_price,
@@ -671,7 +674,7 @@
       ctx.textAlign = 'left';
       for (let step = 0; step <= 5; step++) {
         const py = top + step / 5 * (bottom - top);
-        const price = Math.exp(upper - step / 5 * (upper - lower));
+        const price = upper - step / 5 * (upper - lower);
         ctx.strokeStyle = chartColors.grid; ctx.lineWidth = 1;
         ctx.beginPath(); ctx.moveTo(left, py); ctx.lineTo(right, py); ctx.stroke();
         if (!levelLabels.some(label => Math.abs(label.py - py) < 15)) {
@@ -681,6 +684,19 @@
       ctx.save();
       ctx.beginPath(); ctx.rect(left, top, right - left, bottom - top); ctx.clip();
       if (bands) {
+        const bandIndexes = [];
+        for (let i = first; i < bars.length; i++)
+          if (bands[i] && Number.isFinite(bands[i].upper) && Number.isFinite(bands[i].lower)) bandIndexes.push(i);
+        if (bandIndexes.length > 1) {
+          ctx.beginPath();
+          for (const [position, index] of bandIndexes.entries()) {
+            if (position === 0) ctx.moveTo(x(index), y(bands[index].upper));
+            else ctx.lineTo(x(index), y(bands[index].upper));
+          }
+          for (const index of [...bandIndexes].reverse()) ctx.lineTo(x(index), y(bands[index].lower));
+          ctx.closePath(); ctx.fillStyle = '#7477a322'; ctx.fill();
+        }
+        ctx.lineJoin = 'round'; ctx.lineCap = 'round';
         for (const [key, color, dash] of [
           ['upper', chartColors.band, []], ['middle', chartColors.bandMiddle, [4, 4]], ['lower', chartColors.band, []]
         ]) {
@@ -689,7 +705,7 @@
           let started = false;
           for (let i = first; i < bars.length; i++) {
             const value = bands[i]?.[key];
-            if (!(value > 0)) { started = false; continue; }
+            if (!Number.isFinite(value)) { started = false; continue; }
             if (!started) { ctx.moveTo(x(i), y(value)); started = true; }
             else ctx.lineTo(x(i), y(value));
           }
@@ -750,8 +766,8 @@
       chartReadout.textContent = `${candleLabel(bar.t, activeChart.interval)}  ·  O ${number(bar.o)}  H ${number(bar.h)}  L ${number(bar.l)}  C ${number(bar.c)}`;
       const band = bands?.[hover >= first && hover < bars.length ? hover : bars.length - 1];
       bollingerReadout.textContent = !bands ? '' : band ?
-        `BB 20 / 2  L ${number(band.lower)}  M ${number(band.middle)}  U ${number(band.upper)}` :
-        'BB needs 20 candles';
+        `BB 21 / 2  L ${number(band.lower)}  M ${number(band.middle)}  U ${number(band.upper)}` :
+        'BB needs 21 candles';
       drawMacdChart(first, visible.length);
     }
     function showChartBars(chart, bars, interval) {
@@ -761,7 +777,7 @@
       chart.hover = -1;
       chart.message = '';
       chartStatus.textContent = `${bars.length} ${intervalNames[interval].toLowerCase()} candles · ` +
-        `${candleLabel(bars[0].t, interval)} to ${candleLabel(bars.at(-1).t, interval)} · log price scale` +
+        `${candleLabel(bars[0].t, interval)} to ${candleLabel(bars.at(-1).t, interval)} · linear price scale` +
         (interval === '1Y' ? ' · built from monthly history; first/current years may be partial' : '');
       drawFullChart();
     }

@@ -1,6 +1,7 @@
 """Weekly BTC-pair signal thresholds and open-candle handling."""
 
 import unittest
+from math import sqrt
 
 from triangle_scanner import Candle
 from weekly_btc import ABOVE_BAND, MACD_GREEN, detect_weekly_btc
@@ -33,6 +34,10 @@ class WeeklyBtcTests(unittest.TestCase):
         self.assertGreaterEqual(match.distance_above_band_pct, 3)
         self.assertTrue(match.provisional)
         self.assertIn("week still open", match.reason)
+        recent = prices[-21:]
+        middle = sum(recent) / 21
+        expected_upper = middle + 2 * sqrt(sum((price - middle) ** 2 for price in recent) / 21)
+        self.assertAlmostEqual(match.upper_band, expected_upper)
 
     def test_both_signals_can_appear_on_one_pair(self):
         prices = [100 - i * 0.05 for i in range(59)]
