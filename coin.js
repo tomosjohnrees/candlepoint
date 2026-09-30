@@ -1,6 +1,7 @@
 const pair = decodeURIComponent(location.pathname.split('/').pop());
 const isBtcPair = pair.endsWith('BTC') && !pair.endsWith('USDT');
 const base = pair.slice(0, isBtcPair ? -3 : -4);
+document.querySelector('#breadcrumb-pair').textContent = base + ' / ' + (isBtcPair ? 'BTC' : 'USDT');
 const coinName = document.querySelector('#coin-name');
 const summary = document.querySelector('#summary');
 const signals = document.querySelector('#signals');

@@ -19,9 +19,10 @@
     .brand-mark { width:38px; height:38px; border-radius:10px; background:#143c39; color:#fff; display:grid; place-items:center; font-size:15px; font-weight:750; letter-spacing:-.05em }
     .brand-name { display:block; font-size:15px; font-weight:750; letter-spacing:-.025em }
     .brand-subtitle { display:block; color:#74848a; font-size:11px; margin-top:2px; font-weight:400 }
-    .header-back { font-size:13px }
     main { max-width:1300px; margin:auto; padding:36px clamp(20px,4vw,64px) 64px }
-    .back-link { font-size:12px }
+    .breadcrumbs { display:flex; align-items:center; gap:9px; color:#809197; font-size:12px }
+    .breadcrumbs a { color:#526b71; font-weight:600 }
+    .breadcrumbs [aria-current="page"] { color:#223940; font-weight:650 }
     .hero { display:flex; justify-content:space-between; align-items:end; gap:24px; margin:25px 0 24px }
     .eyebrow { color:#568078; text-transform:uppercase; font-size:11px; font-weight:750; letter-spacing:.12em; margin:0 0 9px }
     h1 { font-size:clamp(32px,4vw,48px); letter-spacing:-.055em; line-height:1.1; margin:0; font-weight:720 }
@@ -70,16 +71,15 @@
     .message strong { color:#223940 }
     [hidden] { display:none !important }
     @media (max-width:850px) { dl { grid-template-columns:repeat(3,minmax(0,1fr)) } .section-head { align-items:start; flex-direction:column } }
-    @media (max-width:600px) { main { padding-top:25px } .hero { align-items:start; flex-direction:column; gap:15px } .hero-price { text-align:left } .hero-price strong { font-size:22px } .chart-panel,.signal { padding:15px } .chart-area { height:360px } dl { grid-template-columns:repeat(2,minmax(0,1fr)) } .header-back { display:none } }
+    @media (max-width:600px) { main { padding-top:25px } .hero { align-items:start; flex-direction:column; gap:15px } .hero-price { text-align:left } .hero-price strong { font-size:22px } .chart-panel,.signal { padding:15px } .chart-area { height:360px } dl { grid-template-columns:repeat(2,minmax(0,1fr)) } }
   </style>
 </head>
 <body>
   <header class="site-header"><div class="site-header-inner">
     <a class="brand" href="/"><span class="brand-mark">C</span><span><span class="brand-name">Candlepoint</span><span class="brand-subtitle">Market signals</span></span></a>
-    <a class="header-back" href="/">← All signals</a>
   </div></header>
   <main>
-    <a class="back-link" href="/">← Back to all signals</a>
+    <nav class="breadcrumbs" aria-label="Breadcrumb"><a href="/">All signals</a><span aria-hidden="true">/</span><span id="breadcrumb-pair" aria-current="page">Coin details</span></nav>
     <div class="hero"><div><p class="eyebrow">Coin details</p><h1 id="coin-name">Loading…</h1><p class="hero-copy" id="hero-copy">Loading the latest scan for this pair.</p></div><div class="hero-price" id="hero-price" hidden><span>Last scanned price</span><strong id="price"></strong></div></div>
     <div class="summary" id="summary" role="status">Loading scan details…</div>
     <section class="panel chart-panel" id="chart-section" aria-labelledby="chart-heading" hidden>
