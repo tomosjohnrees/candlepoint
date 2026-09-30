@@ -29,7 +29,23 @@ state = {
     "status": "Waiting for first scan", "updated_at": None, "scanned": 0,
     "universe": 0, "errors": 0, "matches": [], "watchlist": [],
     "key_levels": [], "hourly_extremes": [], "last_error": None,
+    "comparison_available": False,
 }
+RESULT_GROUPS = ("matches", "watchlist", "key_levels", "hourly_extremes")
+
+
+def signal_identity(group: str, item: dict) -> tuple:
+    """Identify a signal across scans without treating a new candle as a new result."""
+    return (group, item["symbol"], item.get("stage", item.get("level_signal")),
+            item.get("level_price") if group == "key_levels" else None)
+
+
+def mark_new_signals(results: dict, previous: dict | None) -> None:
+    previous_ids = ({signal_identity(group, item) for group in RESULT_GROUPS
+                     for item in previous.get(group, [])} if previous else set())
+    for group in RESULT_GROUPS:
+        for item in results[group]:
+            item["is_new"] = previous is not None and signal_identity(group, item) not in previous_ids
 
 
 def save_state() -> None:
@@ -43,6 +59,8 @@ def scan_once() -> None:
         return
     try:
         with lock:
+            previous = ({group: state.get(group, []) for group in RESULT_GROUPS}
+                        if state["updated_at"] else None)
             state["status"] = "Scanning"
             state["scanned"] = 0
             state["universe"] = 0
@@ -89,10 +107,12 @@ def scan_once() -> None:
         key_levels.sort(key=lambda item: (item["level_signal"].startswith("Approaching"),
                                           abs(item["distance_pct"])))
         hourly_extremes.sort(key=lambda item: abs(item["rsi"] - 50), reverse=True)
+        results = {"matches": matches, "watchlist": watchlist,
+                   "key_levels": key_levels, "hourly_extremes": hourly_extremes}
+        mark_new_signals(results, previous)
         with lock:
             state.update(status="Ready", updated_at=datetime.now(timezone.utc).isoformat(),
-                         matches=matches, watchlist=watchlist, key_levels=key_levels,
-                         hourly_extremes=hourly_extremes)
+                         comparison_available=previous is not None, **results)
             save_state()
     except Exception as exc:
         with lock:

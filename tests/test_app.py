@@ -133,5 +133,33 @@ class ScanIsolationTests(unittest.TestCase):
         self.assertIsNone(hourly_error)
 
 
+class NewSignalTests(unittest.TestCase):
+    def test_new_results_are_compared_with_the_previous_completed_scan(self):
+        previous = {
+            "matches": [{"symbol": "NEARUSDT", "stage": "near breakout", "month": "2026-08"}],
+            "watchlist": [],
+            "key_levels": [{"symbol": "BTCUSDT", "level_signal": "Approaching from below",
+                            "level_price": 100}],
+            "hourly_extremes": [],
+        }
+        current = {
+            "matches": [{"symbol": "NEARUSDT", "stage": "near breakout", "month": "2026-09"},
+                        {"symbol": "FETUSDT", "stage": "breaking out"}],
+            "watchlist": [],
+            "key_levels": [{"symbol": "BTCUSDT", "level_signal": "Crossed above",
+                            "level_price": 100}],
+            "hourly_extremes": [],
+        }
+        app.mark_new_signals(current, previous)
+        self.assertEqual([item["is_new"] for item in current["matches"]], [False, True])
+        self.assertTrue(current["key_levels"][0]["is_new"])
+
+    def test_first_scan_has_no_new_badges_without_a_baseline(self):
+        current = {group: [] for group in app.RESULT_GROUPS}
+        current["matches"] = [{"symbol": "NEARUSDT", "stage": "breaking out"}]
+        app.mark_new_signals(current, None)
+        self.assertFalse(current["matches"][0]["is_new"])
+
+
 if __name__ == "__main__":
     unittest.main()
