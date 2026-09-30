@@ -74,6 +74,8 @@
     .card-main { display:grid; grid-template-columns:minmax(190px,1.25fr) minmax(170px,1.5fr) minmax(100px,.65fr) minmax(130px,.9fr) auto; align-items:center; gap:24px; padding:16px 20px }
     .head { min-width:0 }
     .head h3 { font-size:17px; letter-spacing:-.035em; margin:0; font-weight:730; line-height:1.2 }
+    .head h3 a { color:inherit; font-size:inherit; font-weight:inherit }
+    .head h3 a:hover { color:#176d60; text-decoration:underline }
     .symbol-pair { color:#8a9b9e; font-weight:500 }
     .head-sub { display:flex; align-items:center; flex-wrap:wrap; gap:6px; margin-top:7px }
     .badge { display:inline-block; border:1px solid #e1e8e6; border-radius:5px; background:#f3f6f5; color:#61757a; padding:4px 7px; font-size:10px; font-weight:750; letter-spacing:.045em; text-transform:uppercase; line-height:1 }
@@ -95,8 +97,9 @@
     .metric-value { display:block; font-size:15px; font-weight:650; font-variant-numeric:tabular-nums; letter-spacing:-.02em; white-space:nowrap }
     .metric-value.highlight { color:#1b755c }
     .card-actions { display:flex; justify-content:flex-end }
-    .card-actions button { border:1px solid #d9e3e0; background:#fff; color:#195a4f; border-radius:7px; padding:9px 12px; font-size:12px; font-weight:700; white-space:nowrap }
-    .card-actions button:hover { background:#eef6f2; border-color:#b8d6c8 }
+    .card-actions { gap:7px }
+    .card-actions button, .card-actions a { border:1px solid #d9e3e0; background:#fff; color:#195a4f; border-radius:7px; padding:9px 12px; font-size:12px; font-weight:700; white-space:nowrap }
+    .card-actions button:hover, .card-actions a:hover { background:#eef6f2; border-color:#b8d6c8; text-decoration:none }
     .card-detail { border-top:1px solid #e9eeec; background:#fbfcfc; padding:0 20px }
     .card-detail summary { display:flex; align-items:center; gap:8px; list-style:none; cursor:pointer; padding:11px 0; color:#60767a; font-size:12px; font-weight:650 }
     .card-detail summary::-webkit-details-marker { display:none }
@@ -119,6 +122,7 @@
     .chart-tools { display:flex; flex-direction:column; align-items:stretch; gap:10px; min-width:0 }
     .chart-selectors { display:flex; flex-wrap:wrap; align-items:end; gap:14px 24px }
     .chart-control-group { display:grid; align-content:start; gap:6px }
+    .chart-control-group[hidden] { display:none }
     .chart-intervals { display:flex; gap:3px; padding:3px; border:1px solid #dce5e3; border-radius:8px; background:#f5f8f7 }
     .chart-intervals button { min-height:32px; padding:6px 11px; background:transparent; color:#61747a; border:0; border-radius:5px; font-size:12px; font-weight:650 }
     .chart-intervals button:hover { background:#eaf1ef; color:#244841 }
@@ -142,7 +146,7 @@
     .route-notice[hidden] { display:none }
     .note { color:#819197; line-height:1.6; font-size:12px; margin:24px 0 0; max-width:1000px }
     @media (max-width:1000px) { .summary { grid-template-columns:repeat(3,minmax(0,1fr)) } .card-main { grid-template-columns:minmax(160px,1.3fr) minmax(160px,1fr) minmax(90px,.6fr) auto; gap:16px } .card-main .signal-metric { display:none } dl { grid-template-columns:repeat(3,minmax(0,1fr)) } }
-    @media (max-width:700px) { main { padding-top:30px } .page-heading { margin-bottom:20px } .market-label { display:none } .summary { grid-template-columns:repeat(2,minmax(0,1fr)); margin-bottom:27px } .status { flex-wrap:wrap; gap:9px 12px } .status-divider { display:none } .status-time { margin-left:0; text-align:left; width:100% } .card-main { grid-template-columns:minmax(0,1fr) auto; gap:12px; padding:16px } .mini-chart { grid-column:1 / -1; grid-row:2; height:86px } .card-main .price-metric { display:block; grid-column:1; grid-row:3 } .card-main .signal-metric { display:block; grid-column:2; grid-row:3; text-align:right } .card-actions { grid-column:2; grid-row:1 } .card-detail { padding:0 16px } dl { grid-template-columns:repeat(2,minmax(0,1fr)) } }
+    @media (max-width:700px) { main { padding-top:30px } .page-heading { margin-bottom:20px } .market-label { display:none } .summary { grid-template-columns:repeat(2,minmax(0,1fr)); margin-bottom:27px } .status { flex-wrap:wrap; gap:9px 12px } .status-divider { display:none } .status-time { margin-left:0; text-align:left; width:100% } .card-main { grid-template-columns:minmax(0,1fr) auto; gap:12px; padding:16px } .mini-chart { grid-column:1 / -1; grid-row:2; height:86px } .card-main .price-metric { display:block; grid-column:1; grid-row:3 } .card-main .signal-metric { display:block; grid-column:2; grid-row:3; text-align:right } .card-actions { grid-column:1 / -1; grid-row:4; justify-content:flex-start } .card-detail { padding:0 16px } dl { grid-template-columns:repeat(2,minmax(0,1fr)) } }
     @media (max-width:700px) { .tabs { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px } .tabs button { min-width:0; min-height:48px; white-space:normal; text-align:left; font-size:12px; line-height:1.25 } .tabs .tab-count { margin-left:4px } .subfilter { width:100% } }
     @media (max-width:600px) { .site-header-inner { align-items:flex-start; flex-wrap:wrap; gap:12px } .controls { width:100%; justify-content:flex-start } .controls button { padding:8px 9px; font-size:11px } .brand-subtitle { display:none } .chart-panel { padding:14px; gap:10px } .chart-dialog { width:100vw; height:100vh; border-radius:0 } .chart-heading h2 { font-size:20px } .price-pane { flex:6 } .macd-pane { flex:4 } }
   </style>
@@ -213,6 +217,13 @@
       </div>
       <div class="chart-tools">
         <div class="chart-selectors">
+          <div class="chart-control-group" id="chart-quote-group" hidden>
+            <span class="chart-control-label" id="quote-label">Chart price in</span>
+            <div class="chart-intervals" role="group" aria-labelledby="quote-label">
+              <button type="button" data-chart-quote="BTC">BTC</button>
+              <button type="button" data-chart-quote="USDT">USD (USDT)</button>
+            </div>
+          </div>
           <div class="chart-control-group">
             <span class="chart-control-label" id="interval-label">Candle timeframe</span>
             <div class="chart-intervals" role="group" aria-labelledby="interval-label">
@@ -274,7 +285,7 @@
     const bollingerToggle = document.querySelector('#bollinger-toggle');
     const routeNotice = document.querySelector('#route-notice');
     const viewPaths = {patterns:'/patterns', key_levels:'/key-levels', watchlist:'/macd-watch', hourly_extremes:'/hourly-extremes', btc_weekly:'/btc-weekly'};
-    const managedParams = ['pattern', 'direction', 'btc_signal', 'q', 'new', 'chart', 'interval', 'range', 'levels', 'bands', 'detail'];
+    const managedParams = ['pattern', 'direction', 'btc_signal', 'q', 'new', 'chart', 'quote', 'interval', 'range', 'levels', 'bands', 'detail'];
     let showKeyLevels = false;
     let showBollingerBands = true;
     try {
@@ -302,6 +313,7 @@
         btcSignal:selectValue(document.querySelector('#btc-filter'), params.get('btc_signal')),
         query:(params.get('q') || '').slice(0, 30), newOnly:params.get('new') === '1',
         chart:chart && /^[A-Z0-9]{1,30}(?:USDT|BTC)$/.test(chart) ? chart : null,
+        quote:params.get('quote') === 'USDT' ? 'USDT' : 'BTC',
         interval:['1h', '1d', '1w', '1M', '1Y'].includes(interval) ? interval :
           routeView === 'hourly_extremes' ? '1h' : routeView === 'btc_weekly' ? '1w' : '1M',
         range:['all', '5', '2', '1'].includes(range) ? range : 'all',
@@ -325,6 +337,7 @@
         if (article.querySelector('details')?.open) url.searchParams.append('detail', article.dataset.symbol);
       if (activeChart) {
         url.searchParams.set('chart', activeChart.match.symbol);
+        if (activeChart.match.stage === 'weekly BTC' && activeChart.quote === 'USDT') url.searchParams.set('quote', 'USDT');
         if (activeChart.interval !== '1M') url.searchParams.set('interval', activeChart.interval);
         if (activeChart.range !== 'all') url.searchParams.set('range', activeChart.range);
         url.searchParams.set('levels', showKeyLevels ? '1' : '0');
@@ -755,7 +768,13 @@
     async function loadChartInterval(chart, interval) {
       chart.interval = interval;
       chart.hover = -1;
-      document.querySelector('#chart-title').textContent = chart.match.symbol + ' · ' + intervalNames[interval] + ' chart';
+      const chartSymbol = chart.quote === 'USDT' ? chart.match.symbol.slice(0, -3) + 'USDT' : chart.match.symbol;
+      document.querySelector('#chart-title').textContent = chartSymbol + ' · ' + intervalNames[interval] + ' chart';
+      document.querySelector('#chart-quote-group').hidden = chart.match.stage !== 'weekly BTC';
+      for (const button of document.querySelectorAll('[data-chart-quote]')) {
+        button.classList.toggle('active', button.dataset.chartQuote === chart.quote);
+        button.setAttribute('aria-pressed', String(button.dataset.chartQuote === chart.quote));
+      }
       const monthly = interval === '1M';
       document.querySelector('#support-legend').hidden = !monthly || !(chart.match.support > 0);
       document.querySelector('#triangle-legend').hidden = !monthly || chart.match.stage === 'short-base breakout' || !chart.match.resistance;
@@ -809,7 +828,7 @@
           chartStatus.textContent = chart.message;
           drawFullChart();
           try {
-            const response = await fetch('/api/chart?symbol=' + encodeURIComponent(chart.match.symbol) + '&interval=1M');
+            const response = await fetch('/api/chart?symbol=' + encodeURIComponent(chartSymbol) + '&interval=1M');
             if (!response.ok) throw new Error('History unavailable');
             const data = await response.json();
             if (!Array.isArray(data.candles) || !data.candles.length) throw new Error('History unavailable');
@@ -828,7 +847,7 @@
         return;
       }
       const scannedMonthly = monthly && !!chart.match.month;
-      const scannedWeekly = interval === '1w' && chart.match.stage === 'weekly BTC';
+      const scannedWeekly = interval === '1w' && chart.match.stage === 'weekly BTC' && chart.quote === 'BTC';
       if (scannedMonthly || scannedWeekly) {
         showChartBars(chart, chart.scannedBars, interval);
         chartStatus.textContent = 'Loading full ' + intervalNames[interval].toLowerCase() + ' history…';
@@ -842,7 +861,7 @@
         drawFullChart();
       }
       if (!chart.pending[interval]) {
-        chart.pending[interval] = fetch('/api/chart?symbol=' + encodeURIComponent(chart.match.symbol) +
+        chart.pending[interval] = fetch('/api/chart?symbol=' + encodeURIComponent(chartSymbol) +
           '&interval=' + encodeURIComponent(interval)).then(async response => {
             if (!response.ok) throw new Error('History unavailable');
             const data = await response.json();
@@ -863,15 +882,19 @@
         if (!scannedMonthly && !scannedWeekly && !(interval === '1h' && chart.match.candle_time)) { chart.message = chartStatus.textContent; drawFullChart(); }
       }
     }
-    function openChart(match, interval = '1M', range = 'all') {
-      const bars = scannedBars(match);
+    function openChart(match, interval = '1M', range = 'all', quote = 'BTC') {
+      const bars = quote === 'USDT' && match.stage === 'weekly BTC' ? [] : scannedBars(match);
       const chart = {match, scannedBars:bars, bars, macd:macdSeries(bars), bollinger:bollingerBandsForBars(bars),
-        interval, range, hover:-1, cache:{}, pending:{}, message:''};
+        interval, range, quote, hover:-1, cache:{}, pending:{}, message:''};
       activeChart = chart;
       chartRange.value = range;
-      chartDialog.showModal();
+      if (!chartDialog.open) chartDialog.showModal();
       loadChartInterval(chart, interval);
       requestAnimationFrame(drawFullChart);
+    }
+    function switchChartQuote(quote) {
+      if (!activeChart || activeChart.match.stage !== 'weekly BTC' || activeChart.quote === quote) return;
+      openChart(activeChart.match, activeChart.interval, activeChart.range, quote);
     }
     document.querySelector('#chart-close').onclick = () => chartDialog.close();
     keyLevelsToggle.onchange = () => {
@@ -902,6 +925,10 @@
         loadChartInterval(activeChart, button.dataset.interval);
         writeUrl(true);
       }
+    });
+    document.querySelectorAll('[data-chart-quote]').forEach(button => button.onclick = () => {
+      switchChartQuote(button.dataset.chartQuote);
+      writeUrl(true);
     });
     chartRange.onchange = () => {
       if (!activeChart) return;
@@ -937,7 +964,11 @@
       const head = el('div', 'head');
       const symbol = el('h3');
       const quote = weeklyBtc ? 'BTC' : 'USDT';
-      symbol.append(document.createTextNode(match.symbol.slice(0, -quote.length)), el('span', 'symbol-pair', ' / ' + quote));
+      const coinLink = el('a');
+      coinLink.href = '/coin/' + encodeURIComponent(match.symbol);
+      coinLink.setAttribute('aria-label', 'View ' + match.symbol + ' details');
+      coinLink.append(document.createTextNode(match.symbol.slice(0, -quote.length)), el('span', 'symbol-pair', ' / ' + quote));
+      symbol.append(coinLink);
       const sub = el('div', 'head-sub');
       const badgeClass = level ? (match.level_signal === 'Crossed above' ? 'level-up' :
         match.level_signal === 'Crossed below' ? 'level-down' : 'level-near') :
@@ -976,6 +1007,9 @@
       signal.append(el('span', 'metric-label', signalLabel), el('span', 'metric-value highlight', signalValue));
       main.append(signal);
       const actions = el('div', 'card-actions');
+      const detailsLink = el('a', '', 'View details');
+      detailsLink.href = coinLink.href;
+      actions.append(detailsLink);
       const view = el('button', '', 'View chart');
       view.type = 'button'; view.setAttribute('aria-label', 'Open ' + match.symbol + ' chart');
       view.onclick = () => { openChart(match, extreme ? '1h' : weeklyBtc ? '1w' : '1M'); writeUrl(); };
@@ -1163,8 +1197,10 @@
       }
       if (!match) return;
       if (!activeChart) {
-        openChart(match, route.interval, route.range);
+        openChart(match, route.interval, route.range, match.stage === 'weekly BTC' ? route.quote : 'BTC');
       } else {
+        if (match.stage === 'weekly BTC' && activeChart.quote !== route.quote)
+          switchChartQuote(route.quote);
         const rangeChanged = activeChart.range !== route.range;
         activeChart.range = route.range;
         chartRange.value = route.range;

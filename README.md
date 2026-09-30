@@ -18,6 +18,8 @@ Candlepoint is a local, read-only market scanner for Binance USDT and BTC spot p
 
 Each result includes a price preview, its current status, and expandable signal details. The scan summary shows how many markets were screened and when the data was updated. Results based on an open candle are marked because they can change before the candle closes.
 
+Select a pair name or **View details** to open its own page. That page combines every current signal for the pair, all its scan metrics and explanations, and a chart. If the pair leaves the latest scan, the page says so instead of showing stale signals.
+
 Focus **Search symbol** to see every ticker with a signal in the current scan, then type to narrow the list or choose one. The search narrows results across the tabs. After the second completed scan, signals absent from the preceding scan get a **New** badge. **New since last scan** shows only those signals. A change from approaching a level to crossing it, or a BTC pair gaining its second weekly condition, counts as new; a continuing signal on a later candle does not. The first scan has no earlier scan to compare.
 
 | Monthly key levels | Early MACD watch |
@@ -26,7 +28,7 @@ Focus **Search symbol** to see every ticker with a signal in the current scan, t
 
 ## Charts
 
-Select **View chart** on any result to inspect hourly, daily, weekly, monthly, or yearly candles. The chart offers date ranges, a logarithmic price scale, a MACD 12/26/9 panel, and optional overlays for swing levels and Bollinger Bands (20 closes, two standard deviations). Monthly pattern charts also show the scanned support and triangle boundary; a monthly key-level result shows its scanned level. Hourly extreme results open on the hourly chart, and BTC-pair signals open on the weekly chart with prices quoted in BTC.
+Select **View chart** on any result to inspect hourly, daily, weekly, monthly, or yearly candles. The chart offers date ranges, a logarithmic price scale, a MACD 12/26/9 panel, and optional overlays for swing levels and Bollinger Bands (20 closes, two standard deviations). Monthly pattern charts also show the scanned support and triangle boundary; a monthly key-level result shows its scanned level. Hourly extreme results open on the hourly chart, and BTC-pair signals open on the weekly chart with prices quoted in BTC. For BTC-pair results, use the **BTC / USD (USDT)** switch to view the base coin's USDT market on the same timeframe. The dedicated pair page has the same quote switch and links to the full chart.
 
 Hourly, daily and weekly history is fetched when requested. Yearly candles are assembled from monthly data. Indicators are recalculated for the selected candle interval. Short histories may not have enough candles to display MACD or Bollinger Bands.
 
