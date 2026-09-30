@@ -46,6 +46,12 @@ used for screening. MACD needs at least 36 candles, so yearly MACD may be
 unavailable. If Binance history cannot be loaded, monthly charts use the
 scanned window; other intervals show an error.
 
+Use **Key levels** in a full chart to show up to five horizontal price levels
+from swing highs and lows in the visible date range. Green lines are below the
+latest close and amber lines are above it. The toggle works on every candle
+interval and remembers its setting in the browser. These levels are visual
+references, not scanner signals.
+
 Optional settings:
 
 ```sh

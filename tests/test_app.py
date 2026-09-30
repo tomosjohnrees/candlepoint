@@ -61,6 +61,18 @@ class ChartRouteTests(unittest.TestCase):
         handler.send_error.assert_called_once_with(400, "Unsupported candle interval")
         fetch.assert_not_called()
 
+    def test_key_levels_script_is_served(self):
+        handler = app.Handler.__new__(app.Handler)
+        handler.path = "/key_levels.js"
+        handler.wfile = BytesIO()
+        handler.send_response = Mock()
+        handler.send_header = Mock()
+        handler.end_headers = Mock()
+        handler.do_GET()
+        handler.send_response.assert_called_once_with(200)
+        handler.send_header.assert_any_call("Content-Type", "application/javascript; charset=utf-8")
+        self.assertIn(b"function keyLevelsForBars", handler.wfile.getvalue())
+
 
 if __name__ == "__main__":
     unittest.main()

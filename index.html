@@ -42,8 +42,8 @@
     .chart-tools { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px }
     .chart-selectors, .chart-intervals, .chart-ranges { display:flex; flex-wrap:wrap; gap:6px }
     .chart-selectors { gap:10px }
-    .chart-intervals button, .chart-ranges button { padding:7px 10px; background:#162431; color:#bdced9; border-color:#344756 }
-    .chart-intervals button.active, .chart-ranges button.active { background:#184335; border-color:#3f9271; color:#d5ffe8 }
+    .chart-intervals button, .chart-ranges button, #key-levels-toggle { padding:7px 10px; background:#162431; color:#bdced9; border-color:#344756 }
+    .chart-intervals button.active, .chart-ranges button.active, #key-levels-toggle.active { background:#184335; border-color:#3f9271; color:#d5ffe8 }
     .chart-readout { color:#b9cbd5; font-size:13px; font-variant-numeric:tabular-nums; min-height:20px; display:flex; flex-wrap:wrap; gap:4px 18px }
     .chart-area { flex:1; min-height:220px; display:flex; flex-direction:column; background:#0d151e; border-radius:8px; overflow:hidden }
     .chart-pane { min-height:0; position:relative }
@@ -93,6 +93,7 @@
             <button type="button" data-range="2">2 years</button>
             <button type="button" data-range="1">1 year</button>
           </div>
+          <button type="button" id="key-levels-toggle" aria-pressed="false" title="Show horizontal levels from visible swing highs and lows">Key levels</button>
         </div>
         <div class="chart-readout"><span id="chart-readout"></span><span id="macd-readout"></span></div>
       </div>
@@ -100,9 +101,10 @@
         <div class="chart-pane price-pane"><canvas id="full-chart" aria-label="Full monthly candlestick chart"></canvas></div>
         <div class="chart-pane macd-pane"><canvas id="macd-chart" aria-label="Monthly MACD indicator with line, signal, and histogram"></canvas></div>
       </div>
-      <div class="chart-legend"><span id="support-legend" style="--line:#6595a5">Support</span><span id="triangle-legend" style="--line:#48a7ff">Triangle boundary</span><span id="base-legend" style="--line:#889fff">Base high</span><span style="--line:#f6b75c">MACD</span><span style="--line:#a699ff">Signal</span><span style="--line:#55d2a2">Histogram</span></div>
+      <div class="chart-legend"><span id="support-legend" style="--line:#6595a5">Support</span><span id="triangle-legend" style="--line:#48a7ff">Triangle boundary</span><span id="base-legend" style="--line:#889fff">Base high</span><span id="key-levels-below" style="--line:#61c993" hidden>Level below price</span><span id="key-levels-above" style="--line:#e6b960" hidden>Level above price</span><span style="--line:#f6b75c">MACD</span><span style="--line:#a699ff">Signal</span><span style="--line:#55d2a2">Histogram</span></div>
     </div>
   </dialog>
+  <script src="/key_levels.js"></script>
   <script>
     const cards = document.querySelector('#cards');
     const status = document.querySelector('#status');
@@ -114,6 +116,10 @@
     const chartStatus = document.querySelector('#chart-status');
     const chartReadout = document.querySelector('#chart-readout');
     const macdReadout = document.querySelector('#macd-readout');
+    const keyLevelsToggle = document.querySelector('#key-levels-toggle');
+    let showKeyLevels = false;
+    try { showKeyLevels = localStorage.getItem('triangle-watch-key-levels') === 'true'; }
+    catch (error) { /* Browser storage may be disabled. */ }
     let activeChart = null;
     let filter = 'all', firstLoad = true, previousIds = new Set();
     function number(value) { return Number(value).toLocaleString(undefined, {maximumSignificantDigits: 5}); }
@@ -123,6 +129,13 @@
       if (content !== undefined) node.textContent = content;
       return node;
     }
+    function updateKeyLevelsToggle() {
+      keyLevelsToggle.classList.toggle('active', showKeyLevels);
+      keyLevelsToggle.setAttribute('aria-pressed', String(showKeyLevels));
+      document.querySelector('#key-levels-below').hidden = !showKeyLevels;
+      document.querySelector('#key-levels-above').hidden = !showKeyLevels;
+    }
+    updateKeyLevelsToggle();
     function plot(canvas, match) {
       const ratio = devicePixelRatio || 1, width = canvas.clientWidth, height = canvas.clientHeight;
       canvas.width = width * ratio; canvas.height = height * ratio;
@@ -318,6 +331,7 @@
         ctx.beginPath(); ctx.moveTo(left, py); ctx.lineTo(right, py); ctx.stroke();
         ctx.fillStyle = '#9aafbd'; ctx.fillText(number(price), right + 8, py + 4);
       }
+      const levelLabels = [];
       ctx.save();
       ctx.beginPath(); ctx.rect(left, top, right - left, bottom - top); ctx.clip();
       for (let i = first; i < bars.length; i++) {
@@ -353,12 +367,33 @@
         }
         ctx.stroke(); ctx.setLineDash([]);
       }
+      if (showKeyLevels) {
+        const lastClose = bars.at(-1).c;
+        const drawn = [];
+        if (activeChart.levelCache?.bars !== bars || activeChart.levelCache.first !== first)
+          activeChart.levelCache = {bars, first, levels:keyLevelsForBars(visible)};
+        for (const level of activeChart.levelCache.levels) {
+          const py = y(level.price);
+          if (drawn.some(other => Math.abs(other - py) < 20)) continue;
+          drawn.push(py);
+          const color = level.price < lastClose ? '#61c993' : '#e6b960';
+          ctx.strokeStyle = color; ctx.lineWidth = 1.5; ctx.setLineDash([8, 5]);
+          ctx.beginPath(); ctx.moveTo(left, py); ctx.lineTo(right, py); ctx.stroke();
+          ctx.setLineDash([]);
+          levelLabels.push({py, price:level.price, color});
+        }
+      }
       const hover = activeChart.hover;
       if (hover >= first && hover < bars.length) {
         ctx.strokeStyle = '#e9f0f499'; ctx.lineWidth = 1;
         ctx.beginPath(); ctx.moveTo(x(hover), top); ctx.lineTo(x(hover), bottom); ctx.stroke();
       }
       ctx.restore();
+      for (const label of levelLabels) {
+        ctx.fillStyle = '#162431'; ctx.fillRect(right + 3, label.py - 9, width - right - 6, 18);
+        ctx.fillStyle = label.color; ctx.font = '11px system-ui, sans-serif';
+        ctx.textAlign = 'left'; ctx.fillText(number(label.price), right + 8, label.py + 4);
+      }
       const bar = bars[hover >= first && hover < bars.length ? hover : bars.length - 1];
       chartReadout.textContent = `${candleLabel(bar.t, activeChart.interval)}  ·  O ${number(bar.o)}  H ${number(bar.h)}  L ${number(bar.l)}  C ${number(bar.c)}`;
       drawMacdChart(first, visible.length);
@@ -464,6 +499,13 @@
       requestAnimationFrame(drawFullChart);
     }
     document.querySelector('#chart-close').onclick = () => chartDialog.close();
+    keyLevelsToggle.onclick = () => {
+      showKeyLevels = !showKeyLevels;
+      try { localStorage.setItem('triangle-watch-key-levels', String(showKeyLevels)); }
+      catch (error) { /* The toggle still works for this page. */ }
+      updateKeyLevelsToggle();
+      drawFullChart();
+    };
     chartDialog.onclose = () => { activeChart = null; };
     chartDialog.onclick = event => { if (event.target === chartDialog) chartDialog.close(); };
     document.querySelectorAll('[data-interval]').forEach(button => button.onclick = () => {
