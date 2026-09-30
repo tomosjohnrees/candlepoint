@@ -272,7 +272,7 @@ function drawCharts() {
       mctx.stroke();
     }
   }
-  mctx.fillStyle = '#829297'; mctx.fillText('MACD 12 / 26 / 9', left, 13);
+  mctx.fillStyle = '#829297'; mctx.fillText('MACD', left, 13);
   if (hover >= first && hover < bars.length) {
     for (const [context, height] of [[ctx, price.height], [mctx, indicator.height]]) {
       context.strokeStyle = '#90a6a3'; context.beginPath(); context.moveTo(x(hover), 0); context.lineTo(x(hover), height); context.stroke();
