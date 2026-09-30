@@ -60,6 +60,11 @@ def monthly_candles(symbol: str, limit: int = 100) -> list[Candle]:
     return _parse_candles(rows)
 
 
+def hourly_candles(symbol: str, limit: int = 300) -> list[Candle]:
+    rows = _get("/api/v3/klines", {"symbol": symbol, "interval": "1h", "limit": limit})
+    return _parse_candles(rows)
+
+
 def _parse_candles(rows: list) -> list[Candle]:
     return [Candle(
         open_time=int(row[0]), open=float(row[1]), high=float(row[2]),
@@ -70,7 +75,7 @@ def _parse_candles(rows: list) -> list[Candle]:
 
 def historical_candles(symbol: str, interval: str, max_bars: int = 5000) -> list[Candle]:
     """Fetch chart history, paging backward past Binance's 1,000-bar limit."""
-    if interval not in {"1d", "1w", "1M"}:
+    if interval not in {"1h", "1d", "1w", "1M"}:
         raise ValueError("Unsupported candle interval")
     if max_bars < 1:
         raise ValueError("max_bars must be positive")

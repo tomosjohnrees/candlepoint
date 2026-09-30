@@ -11,6 +11,13 @@ def row(open_time):
 
 
 class HistoricalCandlesTests(unittest.TestCase):
+    def test_hourly_scan_fetches_hourly_candles(self):
+        with patch.object(binance_data, "_get", return_value=[row(1000)]) as fetch:
+            candles = binance_data.hourly_candles("NEARUSDT")
+        fetch.assert_called_once_with("/api/v3/klines",
+                                      {"symbol": "NEARUSDT", "interval": "1h", "limit": 300})
+        self.assertEqual(candles[0].open_time, 1000)
+
     def test_daily_history_pages_backward_without_overlap(self):
         latest = [row(i) for i in range(1000, 2000)]
         older = [row(i) for i in range(998, 1000)]

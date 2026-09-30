@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/tomosjohnrees/candlepoint/actions/workflows/ci.yml/badge.svg)](https://github.com/tomosjohnrees/candlepoint/actions/workflows/ci.yml)
 
-Candlepoint is a local, read-only market scanner for Binance USDT spot pairs. It screens monthly candles for chart patterns, significant price levels, and improving MACD momentum, then presents the results in a browser dashboard with charts and the data behind each signal. It does not connect to an exchange account or place trades.
+Candlepoint is a local, read-only market scanner for Binance USDT spot pairs. It screens monthly candles for chart patterns, significant price levels, and improving MACD momentum, and hourly candles for combined MACD and RSI extremes. It presents the results in a browser dashboard with charts and the data behind each signal. It does not connect to an exchange account or place trades.
 
 ![Candlepoint pattern results and signal details](docs/screenshots/patterns.png)
 
@@ -13,8 +13,9 @@ Candlepoint is a local, read-only market scanner for Binance USDT spot pairs. It
 | **Patterns** | Multiyear descending triangles approaching or crossing their upper boundary, plus shorter base breakouts above the prior eight-month high. A pattern-type dropdown narrows the results. |
 | **Key levels** | Assets moving toward a monthly swing level or crossing it in either direction. A price-movement dropdown filters approaches and upward or downward crosses. |
 | **MACD watch** | Assets whose monthly MACD histogram remains negative but has risen for two consecutive months toward zero. This is a momentum watchlist, not a predicted crossover. |
+| **1-hour extremes** | Assets with 1-hour RSI at least 75 and a positive MACD line in the top 5% of its previous 180 hourly readings, or RSI at most 25 and a negative MACD line in the bottom 5%. |
 
-Each result includes a monthly price preview, its current status, and expandable signal details. The scan summary shows how many markets were screened and when the data was updated. Results based on an open monthly candle are marked **Open month** because they can change before the candle closes.
+Each result includes a price preview, its current status, and expandable signal details. The scan summary shows how many markets were screened and when the data was updated. Results based on an open candle are marked because they can change before the candle closes.
 
 | Monthly key levels | Early MACD watch |
 | --- | --- |
@@ -22,9 +23,9 @@ Each result includes a monthly price preview, its current status, and expandable
 
 ## Charts
 
-Select **View chart** on any result to inspect daily, weekly, monthly, or yearly candles. The chart offers date ranges, a logarithmic price scale, a MACD 12/26/9 panel, and optional overlays for swing levels and Bollinger Bands (20 closes, two standard deviations). Monthly pattern charts also show the scanned support and triangle boundary; a monthly key-level result shows its scanned level.
+Select **View chart** on any result to inspect hourly, daily, weekly, monthly, or yearly candles. The chart offers date ranges, a logarithmic price scale, a MACD 12/26/9 panel, and optional overlays for swing levels and Bollinger Bands (20 closes, two standard deviations). Monthly pattern charts also show the scanned support and triangle boundary; a monthly key-level result shows its scanned level. Hourly extreme results open on the hourly chart.
 
-Daily and weekly history is fetched when requested. Yearly candles are assembled from monthly data. Indicators are recalculated for the selected candle interval. Short histories may not have enough candles to display MACD or Bollinger Bands.
+Hourly, daily and weekly history is fetched when requested. Yearly candles are assembled from monthly data. Indicators are recalculated for the selected candle interval. Short histories may not have enough candles to display MACD or Bollinger Bands.
 
 ![Candlepoint monthly chart with key levels, Bollinger Bands, and MACD](docs/screenshots/chart.png)
 
@@ -50,12 +51,13 @@ MAX_SYMBOLS=100 SCAN_INTERVAL_SECONDS=3600 PORT=8765 python3 app.py
 
 ## How screening works
 
-The scanner starts with active Binance USDT spot pairs, excludes stablecoin and fiat base assets, and requires at least 1 million USDT of reported 24-hour quote turnover. It uses monthly OHLCV candles and the standard MACD 12/26/9 calculation.
+The scanner starts with active Binance USDT spot pairs, excludes stablecoin and fiat base assets, and requires at least 1 million USDT of reported 24-hour quote turnover. Monthly signals use monthly OHLCV candles and the standard MACD 12/26/9 calculation. The hourly screen fetches 300 hourly candles per symbol and uses Wilder RSI (14) and the MACD line (12/26).
 
 - **Descending triangles:** Look across 24–60 monthly candles for a support zone tested over at least 18 months, lower swing highs, and a falling upper boundary with an estimated apex within eight months. The monthly MACD histogram must be positive now and have been nonpositive within the preceding three candles. A first monthly candle trading at least 1% above the previous month's frozen boundary is labelled **Breaking out**; a qualifying pattern short of that threshold is **Near breakout**.
 - **Short-base breakouts:** Require an eight-month floor with at least three tests spanning seven months, an earlier high at least twice the base high, and current monthly price at least 5% above the preceding eight months' high. The monthly MACD histogram must have turned positive recently. This category does not imply a multiyear triangle.
 - **Monthly key levels:** Rank up to five swing levels from preceding monthly candles, excluding the candle being evaluated. Compare the prior monthly close with the latest monthly price to identify crossings above or below a level. An asset also qualifies when it moves toward a level and comes within 3% of it.
 - **Early MACD watch:** Require three negative monthly histogram readings that rise consecutively, at least 25% progress toward zero over two months, and a remaining gap no greater than three months at that recent pace. Assets already listed as triangle matches are excluded from this watchlist.
+- **1-hour extremes:** Require RSI at least 75 and positive MACD at or above the 95th percentile of its own previous 180 hourly readings, or RSI at most 25 and negative MACD at or below the 5th percentile. MACD is divided by price before ranking, so its displayed percent is comparable across assets. The latest hourly candle may still be open.
 
 Signals are screening results, not forecasts or trading recommendations. The pattern fit score measures similarity to the scanner's rules; it is not a probability of profit. The thresholds have not been validated for profitability, and an open monthly candle can change a signal before month end.
 
