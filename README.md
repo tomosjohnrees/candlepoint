@@ -17,6 +17,8 @@ Candlepoint is a local, read-only market scanner for Binance USDT spot pairs. It
 
 Each result includes a price preview, its current status, and expandable signal details. The scan summary shows how many markets were screened and when the data was updated. Results based on an open candle are marked because they can change before the candle closes.
 
+Use **Search symbol** to narrow results by ticker across the tabs. After the second completed scan, signals absent from the preceding scan get a **New** badge. **New since last scan** shows only those signals. A change from approaching a level to crossing it counts as new; a continuing signal on a later candle does not. The first scan has no earlier scan to compare.
+
 | Monthly key levels | Early MACD watch |
 | --- | --- |
 | ![Monthly key level results](docs/screenshots/key-levels.png) | ![Early MACD watch results](docs/screenshots/macd-watch.png) |
@@ -39,7 +41,7 @@ python3 app.py
 
 Open [http://127.0.0.1:8765](http://127.0.0.1:8765). Candlepoint scans on startup and every two hours thereafter. **Run scan** starts another scan; **Enable alerts** enables browser notifications while the dashboard is open. The latest scan is saved locally in `scan_state.json`.
 
-The URL follows the selected tab, filter, expanded result, and chart settings. Browser Back and Forward restore those views. A `127.0.0.1` link works only on the computer running Candlepoint; other people need a hosted instance at an address they can reach.
+The URL follows the selected tab, filters, symbol search, expanded result, and chart settings. Browser Back and Forward restore those views. A `127.0.0.1` link works only on the computer running Candlepoint; other people need a hosted instance at an address they can reach.
 
 Optional environment settings:
 

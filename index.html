@@ -50,13 +50,18 @@
     .tabs button:hover { color:#244841 }
     .tabs button.active { color:#16584c; border-bottom-color:#1e7967 }
     .tabs .tab-count { display:inline-block; margin-left:6px; color:#809197; font-size:11px; font-variant-numeric:tabular-nums }
-    .subfilters { display:flex; align-items:end; margin:0 0 16px }
+    .subfilters { display:flex; align-items:end; flex-wrap:wrap; gap:12px 20px; margin:0 0 16px }
     .subfilters[hidden] { display:none }
     .subfilter[hidden] { display:none }
     .subfilter { display:grid; gap:6px; min-width:min(100%,240px) }
     .subfilter label, .chart-control-label { color:#71838a; font-size:11px; font-weight:700; letter-spacing:.025em }
-    .subfilter select, .chart-range { width:100%; min-height:38px; padding:8px 34px 8px 11px; border:1px solid #d8e1df; border-radius:7px; background:#fff; color:#2c444b; font:inherit; font-size:13px; font-weight:600; cursor:pointer }
-    .subfilter select:focus-visible, .chart-range:focus-visible { outline:3px solid #62b4a0; outline-offset:2px }
+    .subfilter select, .subfilter input, .chart-range { width:100%; min-height:38px; padding:8px 11px; border:1px solid #d8e1df; border-radius:7px; background:#fff; color:#2c444b; font:inherit; font-size:13px; font-weight:600 }
+    .subfilter select, .chart-range { padding-right:34px; cursor:pointer }
+    .subfilter input::placeholder { color:#9aa8aa; font-weight:400 }
+    .subfilter select:focus-visible, .subfilter input:focus-visible, .chart-range:focus-visible { outline:3px solid #62b4a0; outline-offset:2px }
+    .new-filter { display:flex; align-items:center; gap:8px; min-height:38px; color:#415960; font-size:13px; font-weight:600; cursor:pointer }
+    .new-filter input { width:16px; height:16px; margin:0; accent-color:#176d5d; cursor:pointer }
+    .new-filter:has(input:disabled) { color:#9aa8aa; cursor:default }
     #cards { display:grid; gap:8px }
     .result-card { background:#fff; border:1px solid #dfe7e5; border-radius:11px; min-width:0; box-shadow:0 1px 3px #102f2805; overflow:hidden }
     .result-card:hover { border-color:#c7d8d3; box-shadow:0 4px 16px #183c3310 }
@@ -74,6 +79,7 @@
     .badge.level-near { color:#826c3e; background:#faf5e9; border-color:#eee5d0 }
     .badge.extreme-high { color:#9a5e50; background:#f9eeeb; border-color:#f0ded9 }
     .badge.extreme-low { color:#236d55; background:#eaf5ed; border-color:#d4ead9 }
+    .badge.new { color:#155e8a; background:#eaf4fa; border-color:#d4e8f4 }
     .provisional { color:#9a7a47; font-size:11px; font-weight:600 }
     .mini-chart { min-width:0; height:72px; border-radius:6px; overflow:hidden; background:#f5f8f7 }
     .mini-chart canvas { width:100%; height:100%; display:block }
@@ -171,6 +177,11 @@
           <option value="Approaching from above">Approaching from above</option>
         </select>
       </div>
+      <div class="subfilter">
+        <label for="symbol-search">Search symbol</label>
+        <input id="symbol-search" type="search" placeholder="e.g. NEAR" maxlength="30" autocomplete="off">
+      </div>
+      <label class="new-filter" title="Signals absent from the previous completed scan"><input id="new-only" type="checkbox" disabled> New since last scan</label>
     </div>
     <p class="route-notice" id="route-notice" role="status" hidden></p>
     <section id="cards" role="tabpanel" aria-labelledby="patterns-tab" aria-live="polite" tabindex="0"></section>
@@ -227,6 +238,8 @@
     const status = document.querySelector('#status');
     const summary = document.querySelector('#summary');
     const resultCount = document.querySelector('#result-count');
+    const symbolSearch = document.querySelector('#symbol-search');
+    const newOnlyToggle = document.querySelector('#new-only');
     const scanButton = document.querySelector('#scan');
     const notifyButton = document.querySelector('#notify');
     const chartDialog = document.querySelector('#chart-dialog');
@@ -241,7 +254,7 @@
     const bollingerToggle = document.querySelector('#bollinger-toggle');
     const routeNotice = document.querySelector('#route-notice');
     const viewPaths = {patterns:'/patterns', key_levels:'/key-levels', watchlist:'/macd-watch', hourly_extremes:'/hourly-extremes'};
-    const managedParams = ['pattern', 'direction', 'chart', 'interval', 'range', 'levels', 'bands', 'detail'];
+    const managedParams = ['pattern', 'direction', 'q', 'new', 'chart', 'interval', 'range', 'levels', 'bands', 'detail'];
     let showKeyLevels = false;
     let showBollingerBands = true;
     try {
@@ -266,6 +279,7 @@
         view:routeView,
         pattern:selectValue(document.querySelector('#pattern-filter'), params.get('pattern')),
         direction:selectValue(document.querySelector('#level-filter'), params.get('direction')),
+        query:(params.get('q') || '').slice(0, 30), newOnly:params.get('new') === '1',
         chart:chart && /^[A-Z0-9]{1,30}USDT$/.test(chart) ? chart : null,
         interval:['1h', '1d', '1w', '1M', '1Y'].includes(interval) ? interval :
           routeView === 'hourly_extremes' ? '1h' : '1M',
@@ -282,6 +296,8 @@
       const direction = document.querySelector('#level-filter').value;
       if (pattern !== 'all') url.searchParams.set('pattern', pattern);
       if (direction !== 'all') url.searchParams.set('direction', direction);
+      if (symbolSearch.value.trim()) url.searchParams.set('q', symbolSearch.value.trim());
+      if (newOnlyToggle.checked) url.searchParams.set('new', '1');
       for (const article of cards.querySelectorAll('.result-card'))
         if (article.querySelector('details')?.open) url.searchParams.append('detail', article.dataset.symbol);
       if (activeChart) {
@@ -832,6 +848,11 @@
         extreme ? (match.stage === 'Extreme high' ? 'extreme-high' : 'extreme-low') :
         watch ? 'watch' : shortBase ? 'base' : match.stage === 'breaking out' ? 'breaking' : '';
       sub.append(el('span', 'badge ' + badgeClass, level ? match.level_signal : watch ? 'Early MACD' : match.stage));
+      if (match.is_new) {
+        const newBadge = el('span', 'badge new', 'New');
+        newBadge.title = 'Appeared in the latest completed scan';
+        sub.append(newBadge);
+      }
       if (match.provisional) sub.append(el('span', 'provisional', extreme ? 'Open 1-hour candle' : 'Open month'));
       head.append(symbol, sub);
       main.append(head);
@@ -925,24 +946,31 @@
         const item = el('div', 'summary-item'); item.append(el('strong', '', String(value)), el('span', '', label)); summary.append(item);
       }
       scanButton.disabled = data.status === 'Scanning';
-      const counts = {patterns:matches.length, key_levels:keyLevels.length, watchlist:watchlist.length, hourly_extremes:extremes.length};
+      newOnlyToggle.disabled = !data.comparison_available;
+      if (newOnlyToggle.disabled) newOnlyToggle.checked = false;
+      const query = symbolSearch.value.trim().toUpperCase();
+      const included = match => (!query || match.symbol.includes(query)) &&
+        (!newOnlyToggle.checked || match.is_new);
+      const counts = {patterns:matches.filter(included).length, key_levels:keyLevels.filter(included).length,
+        watchlist:watchlist.filter(included).length, hourly_extremes:extremes.filter(included).length};
       document.querySelectorAll('[data-view]').forEach(button => {
         const count = button.querySelector('.tab-count') || el('span', 'tab-count');
         count.textContent = String(counts[button.dataset.view]);
         if (!count.parentNode) button.append(count);
       });
-      document.querySelector('.subfilters').hidden = view === 'watchlist' || view === 'hourly_extremes';
       document.querySelector('#pattern-subfilter').hidden = view !== 'patterns';
       document.querySelector('#level-subfilter').hidden = view !== 'key_levels';
       cards.setAttribute('aria-labelledby', view === 'patterns' ? 'patterns-tab' :
         view === 'key_levels' ? 'levels-tab' : view === 'hourly_extremes' ? 'extremes-tab' : 'macd-tab');
       const patternFilter = document.querySelector('#pattern-filter').value;
       const levelFilter = document.querySelector('#level-filter').value;
-      const visible = view === 'hourly_extremes' ? extremes : view === 'watchlist' ? watchlist : view === 'key_levels' ?
+      const categoryResults = view === 'hourly_extremes' ? extremes : view === 'watchlist' ? watchlist : view === 'key_levels' ?
         keyLevels.filter(m => levelFilter === 'all' || m.level_signal === levelFilter) :
         matches.filter(m => patternFilter === 'all' || m.stage === patternFilter);
+      const visible = categoryResults.filter(included);
       resultCount.textContent = visible.length + (visible.length === 1 ? ' result' : ' results');
-      const signature = view + '|' + patternFilter + '|' + levelFilter + '|' + JSON.stringify(visible) + '|' + data.status;
+      const signature = view + '|' + patternFilter + '|' + levelFilter + '|' + query + '|' +
+        newOnlyToggle.checked + '|' + JSON.stringify(visible) + '|' + data.status;
       if (signature !== render.signature) {
         const expanded = new Set([...cards.querySelectorAll('.result-card')].filter(node => node.querySelector('details')?.open).map(node => node.dataset.symbol));
         cards.replaceChildren(...visible.map(card));
@@ -954,7 +982,9 @@
             'Approaching from below':'No assets are approaching a monthly key level from below in this scan.',
             'Approaching from above':'No assets are approaching a monthly key level from above in this scan.'
           };
-          const emptyMessage = data.status === 'Scanning' ? 'Scanning markets…' :
+          const emptyMessage = data.status === 'Scanning' && !data.updated_at ? 'Scanning markets…' :
+            query ? 'No symbols matching “' + symbolSearch.value.trim() + '” in this view.' :
+            newOnlyToggle.checked ? 'No new signals in this view since the previous scan.' :
             view === 'key_levels' && levelFilter !== 'all' ? levelEmpty[levelFilter] :
             view === 'patterns' && patternFilter !== 'all' ? 'No ' + patternFilter + ' signals in this scan.' :
             view === 'watchlist' ? 'No early MACD signals in this scan.' :
@@ -980,6 +1010,8 @@
       view = route.view;
       document.querySelector('#pattern-filter').value = route.pattern;
       document.querySelector('#level-filter').value = route.direction;
+      if (symbolSearch.value !== route.query) symbolSearch.value = route.query;
+      newOnlyToggle.checked = route.newOnly;
       if (route.levels !== null) showKeyLevels = route.levels;
       if (route.bands !== null) showBollingerBands = route.bands;
       updateKeyLevelsToggle();
@@ -1032,6 +1064,8 @@
     });
     for (const select of document.querySelectorAll('.subfilter select'))
       select.onchange = () => { if (latestData) render(latestData); writeUrl(); };
+    symbolSearch.oninput = () => { if (latestData) render(latestData); writeUrl(true); };
+    newOnlyToggle.onchange = () => { if (latestData) render(latestData); writeUrl(); };
     document.querySelector('.tabs').addEventListener('keydown', event => {
       if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
       const buttons = [...document.querySelectorAll('[data-view]')];
