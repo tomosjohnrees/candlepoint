@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Triangle Watch — Market Signals</title>
+  <title>Candlepoint — Market Signals</title>
   <style>
     :root { font-family:Inter,ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; color:#192a33; background:#f6f8f7; font-synthesis:none }
     * { box-sizing:border-box }
@@ -122,6 +122,8 @@
     .chart-legend { color:#6f8488; font-size:11px; display:flex; gap:18px; flex-wrap:wrap }
     .chart-legend span::before { content:''; display:inline-block; width:14px; height:2px; margin:0 6px 3px 0; background:var(--line) }
     .empty { text-align:center; color:#71848a; padding:48px 20px; background:#fff; border:1px solid #e1e8e6; border-radius:11px; margin:0; font-size:13px }
+    .route-notice { color:#825b38; background:#fff8eb; border:1px solid #eadbc2; border-radius:8px; padding:11px 14px; margin:0 0 16px; font-size:12px }
+    .route-notice[hidden] { display:none }
     .note { color:#819197; line-height:1.6; font-size:12px; margin:24px 0 0; max-width:1000px }
     @media (max-width:1000px) { .card-main { grid-template-columns:minmax(160px,1.3fr) minmax(160px,1fr) minmax(90px,.6fr) auto; gap:16px } .card-main .signal-metric { display:none } dl { grid-template-columns:repeat(3,minmax(0,1fr)) } }
     @media (max-width:700px) { main { padding-top:30px } .page-heading { margin-bottom:20px } .market-label { display:none } .summary { grid-template-columns:repeat(2,minmax(0,1fr)); margin-bottom:27px } .status { flex-wrap:wrap; gap:9px 12px } .status-divider { display:none } .status-time { margin-left:0; text-align:left; width:100% } .card-main { grid-template-columns:minmax(0,1fr) auto; gap:12px; padding:16px } .mini-chart { grid-column:1 / -1; grid-row:2; height:86px } .card-main .price-metric { display:block; grid-column:1; grid-row:3 } .card-main .signal-metric { display:block; grid-column:2; grid-row:3; text-align:right } .card-actions { grid-column:2; grid-row:1 } .card-detail { padding:0 16px } dl { grid-template-columns:repeat(2,minmax(0,1fr)) } }
@@ -132,7 +134,7 @@
 <body>
   <header class="site-header">
     <div class="site-header-inner">
-      <div class="brand"><div class="brand-mark" aria-hidden="true">TW</div><div><div class="brand-name">Triangle Watch</div><div class="brand-subtitle">Monthly market scanner</div></div></div>
+      <div class="brand"><div class="brand-mark" aria-hidden="true">CP</div><div><div class="brand-name">Candlepoint</div><div class="brand-subtitle">Monthly market scanner</div></div></div>
       <div class="controls"><button id="notify">Enable alerts</button><button id="scan">Run scan</button></div>
     </div>
   </header>
@@ -167,6 +169,7 @@
         </select>
       </div>
     </div>
+    <p class="route-notice" id="route-notice" role="status" hidden></p>
     <section id="cards" role="tabpanel" aria-labelledby="patterns-tab" aria-live="polite" tabindex="0"></section>
     <p class="note">Triangle matches use a multiyear descending upper line. Short-base breakouts have a shorter flat floor and a current price above the prior eight-month high. Monthly key levels flag a close crossing a prior swing level in either direction, or moving within 3% of one. The early MACD watchlist tracks negative histograms rising toward zero. These are screening results, not buy recommendations. Open monthly candles can change before month close.</p>
   </main>
@@ -232,15 +235,67 @@
     const chartRange = document.querySelector('#chart-range');
     const keyLevelsToggle = document.querySelector('#key-levels-toggle');
     const bollingerToggle = document.querySelector('#bollinger-toggle');
+    const routeNotice = document.querySelector('#route-notice');
+    const viewPaths = {patterns:'/patterns', key_levels:'/key-levels', watchlist:'/macd-watch'};
+    const managedParams = ['pattern', 'direction', 'chart', 'interval', 'range', 'levels', 'bands', 'detail'];
     let showKeyLevels = false;
     let showBollingerBands = true;
     try {
-      showKeyLevels = localStorage.getItem('triangle-watch-key-levels') === 'true';
-      showBollingerBands = localStorage.getItem('triangle-watch-bollinger-bands') !== 'false';
+      showKeyLevels = (localStorage.getItem('candlepoint-key-levels') ??
+        localStorage.getItem('triangle-watch-key-levels')) === 'true';
+      showBollingerBands = (localStorage.getItem('candlepoint-bollinger-bands') ??
+        localStorage.getItem('triangle-watch-bollinger-bands')) !== 'false';
     }
     catch (error) { /* Browser storage may be disabled. */ }
     let activeChart = null;
     let view = 'patterns', latestData = null, firstLoad = true, previousIds = new Set();
+    let ignoredCloseEvents = 0;
+    function selectValue(select, value) {
+      return [...select.options].some(option => option.value === value) ? value : 'all';
+    }
+    function readRoute() {
+      const params = new URL(location.href).searchParams;
+      const routeView = Object.keys(viewPaths).find(key => viewPaths[key] === location.pathname) || 'patterns';
+      const interval = params.get('interval'), range = params.get('range'), chart = params.get('chart');
+      const booleanParam = name => params.get(name) === '1' ? true : params.get(name) === '0' ? false : null;
+      return {
+        view:routeView,
+        pattern:selectValue(document.querySelector('#pattern-filter'), params.get('pattern')),
+        direction:selectValue(document.querySelector('#level-filter'), params.get('direction')),
+        chart:chart && /^[A-Z0-9]{1,30}USDT$/.test(chart) ? chart : null,
+        interval:['1d', '1w', '1M', '1Y'].includes(interval) ? interval : '1M',
+        range:['all', '5', '2', '1'].includes(range) ? range : 'all',
+        levels:booleanParam('levels'), bands:booleanParam('bands'),
+        details:new Set(params.getAll('detail').filter(symbol => /^[A-Z0-9]{1,30}USDT$/.test(symbol)))
+      };
+    }
+    function writeUrl(replace = false) {
+      const url = new URL(location.href);
+      url.pathname = viewPaths[view];
+      for (const name of managedParams) url.searchParams.delete(name);
+      const pattern = document.querySelector('#pattern-filter').value;
+      const direction = document.querySelector('#level-filter').value;
+      if (pattern !== 'all') url.searchParams.set('pattern', pattern);
+      if (direction !== 'all') url.searchParams.set('direction', direction);
+      for (const article of cards.querySelectorAll('.result-card'))
+        if (article.querySelector('details')?.open) url.searchParams.append('detail', article.dataset.symbol);
+      if (activeChart) {
+        url.searchParams.set('chart', activeChart.match.symbol);
+        if (activeChart.interval !== '1M') url.searchParams.set('interval', activeChart.interval);
+        if (activeChart.range !== 'all') url.searchParams.set('range', activeChart.range);
+        url.searchParams.set('levels', showKeyLevels ? '1' : '0');
+        url.searchParams.set('bands', showBollingerBands ? '1' : '0');
+      }
+      if (url.href !== location.href)
+        history[replace ? 'replaceState' : 'pushState'](
+          replace ? history.state : {chartEntry:!!activeChart}, '', url);
+    }
+    function setViewTabs() {
+      document.querySelectorAll('[data-view]').forEach(button => {
+        button.classList.toggle('active', button.dataset.view === view);
+        button.setAttribute('aria-selected', String(button.dataset.view === view));
+      });
+    }
     const chartColors = {
       surface:'#f8faf9', grid:'#e1e9e6', axis:'#7b8f93', text:'#4e686e',
       up:'#23866e', down:'#c47771', support:'#94aaa8', boundary:'#648da8',
@@ -658,40 +713,52 @@
         if (!monthly) { chart.message = chartStatus.textContent; drawFullChart(); }
       }
     }
-    function openChart(match) {
+    function openChart(match, interval = '1M', range = 'all') {
       const bars = scannedBars(match);
       const chart = {match, scannedBars:bars, bars, macd:macdSeries(bars), bollinger:bollingerBandsForBars(bars),
-        interval:'1M', range:'all', hover:-1, cache:{}, pending:{}, message:''};
+        interval:'1M', range, hover:-1, cache:{}, pending:{}, message:''};
       activeChart = chart;
-      chartRange.value = 'all';
+      chartRange.value = range;
       chartDialog.showModal();
       loadChartInterval(chart, '1M');
+      if (interval !== '1M') loadChartInterval(chart, interval);
       requestAnimationFrame(drawFullChart);
     }
     document.querySelector('#chart-close').onclick = () => chartDialog.close();
     keyLevelsToggle.onchange = () => {
       showKeyLevels = keyLevelsToggle.checked;
-      try { localStorage.setItem('triangle-watch-key-levels', String(showKeyLevels)); }
+      try { localStorage.setItem('candlepoint-key-levels', String(showKeyLevels)); }
       catch (error) { /* The toggle still works for this page. */ }
       updateKeyLevelsToggle();
       drawFullChart();
+      if (activeChart) writeUrl(true);
     };
     bollingerToggle.onchange = () => {
       showBollingerBands = bollingerToggle.checked;
-      try { localStorage.setItem('triangle-watch-bollinger-bands', String(showBollingerBands)); }
+      try { localStorage.setItem('candlepoint-bollinger-bands', String(showBollingerBands)); }
       catch (error) { /* The toggle still works for this page. */ }
       updateBollingerToggle();
       drawFullChart();
+      if (activeChart) writeUrl(true);
     };
-    chartDialog.onclose = () => { activeChart = null; };
+    chartDialog.onclose = () => {
+      if (ignoredCloseEvents) { ignoredCloseEvents--; return; }
+      activeChart = null;
+      if (history.state?.chartEntry) history.back();
+      else writeUrl(true);
+    };
     chartDialog.onclick = event => { if (event.target === chartDialog) chartDialog.close(); };
     document.querySelectorAll('[data-interval]').forEach(button => button.onclick = () => {
-      if (activeChart) loadChartInterval(activeChart, button.dataset.interval);
+      if (activeChart) {
+        loadChartInterval(activeChart, button.dataset.interval);
+        writeUrl(true);
+      }
     });
     chartRange.onchange = () => {
       if (!activeChart) return;
       activeChart.range = chartRange.value; activeChart.hover = -1;
       drawFullChart();
+      writeUrl(true);
     };
     function moveChartPointer(event) {
       if (!activeChart || !activeChart.bars.length) return;
@@ -745,7 +812,7 @@
       const actions = el('div', 'card-actions');
       const view = el('button', '', 'View chart');
       view.type = 'button'; view.setAttribute('aria-label', 'Open ' + match.symbol + ' chart');
-      view.onclick = () => openChart(match);
+      view.onclick = () => { openChart(match); writeUrl(); };
       actions.append(view); main.append(actions);
       article.append(main);
       const details = el('details', 'card-detail');
@@ -786,6 +853,9 @@
       link.href = 'https://www.binance.com/en/trade/' + encodeURIComponent(match.symbol.replace(/USDT$/, '_USDT')) + '?type=spot';
       link.target = '_blank'; link.rel = 'noopener noreferrer'; body.append(link);
       details.append(body); article.append(details);
+      details.addEventListener('toggle', () => {
+        if (details.isConnected && latestData) writeUrl(true);
+      });
       requestAnimationFrame(() => plot(chart, match));
       return article;
     }
@@ -855,22 +925,63 @@
       }
       previousIds = ids; firstLoad = false;
     }
+    function restoreRoute() {
+      const route = readRoute();
+      view = route.view;
+      document.querySelector('#pattern-filter').value = route.pattern;
+      document.querySelector('#level-filter').value = route.direction;
+      if (route.levels !== null) showKeyLevels = route.levels;
+      if (route.bands !== null) showBollingerBands = route.bands;
+      updateKeyLevelsToggle();
+      updateBollingerToggle();
+      setViewTabs();
+      if (!latestData) return;
+      render(latestData);
+      for (const article of cards.querySelectorAll('.result-card')) {
+        const details = article.querySelector('details');
+        details.open = route.details.has(article.dataset.symbol);
+      }
+      const groups = {
+        patterns:latestData.matches || [], key_levels:latestData.key_levels || [],
+        watchlist:latestData.watchlist || []
+      };
+      const match = route.chart && (groups[view].find(item => item.symbol === route.chart) ||
+        Object.values(groups).flat().find(item => item.symbol === route.chart));
+      routeNotice.hidden = !route.chart || !!match ||
+        ['Scanning', 'Starting scan', 'Waiting for first scan'].includes(latestData.status);
+      if (!routeNotice.hidden) routeNotice.textContent = route.chart +
+        ' is no longer in the latest scan. Choose a current result to view its chart.';
+      if (activeChart && (!match || activeChart.match.symbol !== match.symbol ||
+          activeChart.match.stage !== match.stage || activeChart.match.level_signal !== match.level_signal)) {
+        ignoredCloseEvents++;
+        chartDialog.close();
+        activeChart = null;
+      }
+      if (!match) return;
+      if (!activeChart) {
+        openChart(match, route.interval, route.range);
+      } else {
+        const rangeChanged = activeChart.range !== route.range;
+        activeChart.range = route.range;
+        chartRange.value = route.range;
+        if (activeChart.interval !== route.interval) loadChartInterval(activeChart, route.interval);
+        else if (rangeChanged || route.levels !== null || route.bands !== null) drawFullChart();
+      }
+    }
     async function refresh() {
-      try { const response = await fetch('/api/state'); latestData = await response.json(); render(latestData); }
+      try { const response = await fetch('/api/state'); latestData = await response.json(); restoreRoute(); }
       catch (error) { status.textContent = 'Cannot reach the scanner: ' + error.message; }
     }
     scanButton.onclick = async () => { scanButton.disabled = true; await fetch('/api/scan', {method:'POST'}); await refresh(); };
     notifyButton.onclick = async () => { if (!('Notification' in window)) return; await Notification.requestPermission(); notifyButton.textContent = Notification.permission === 'granted' ? 'Alerts on' : 'Enable alerts'; };
     document.querySelectorAll('[data-view]').forEach(button => button.onclick = () => {
       view = button.dataset.view;
-      document.querySelectorAll('[data-view]').forEach(item => {
-        item.classList.toggle('active', item === button);
-        item.setAttribute('aria-selected', String(item === button));
-      });
+      setViewTabs();
       if (latestData) render(latestData);
+      writeUrl();
     });
     for (const select of document.querySelectorAll('.subfilter select'))
-      select.onchange = () => { if (latestData) render(latestData); };
+      select.onchange = () => { if (latestData) render(latestData); writeUrl(); };
     document.querySelector('.tabs').addEventListener('keydown', event => {
       if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
       const buttons = [...document.querySelectorAll('[data-view]')];
@@ -881,7 +992,9 @@
         (current + (event.key === 'ArrowRight' ? 1 : -1) + buttons.length) % buttons.length;
       buttons[next].focus(); buttons[next].click();
     });
+    window.addEventListener('popstate', restoreRoute);
     if ('Notification' in window && Notification.permission === 'granted') notifyButton.textContent = 'Alerts on';
+    restoreRoute();
     refresh(); setInterval(refresh, 15000);
   </script>
 </body>

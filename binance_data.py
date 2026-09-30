@@ -23,7 +23,7 @@ def _get(path: str, params: dict | None = None):
     url = BASE + path + ("?" + urlencode(params) if params else "")
     for attempt in range(3):
         try:
-            request = Request(url, headers={"User-Agent": "TriangleScanner/0.1"})
+            request = Request(url, headers={"User-Agent": "Candlepoint/0.1"})
             with urlopen(request, timeout=18) as response:
                 return json.load(response)
         except HTTPError as exc:

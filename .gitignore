@@ -2,3 +2,4 @@ __pycache__/
 *.pyc
 scan_state.json
 scan_state.tmp
+.DS_Store

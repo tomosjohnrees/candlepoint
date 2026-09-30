@@ -1,4 +1,4 @@
-"""Local dashboard for monthly triangle alerts. Run: python3 app.py"""
+"""Local Candlepoint dashboard. Run: python3 app.py"""
 
 from __future__ import annotations
 
@@ -137,7 +137,8 @@ class Handler(BaseHTTPRequestHandler):
             }).encode()
             self.send_response(200)
             self.send_header("Content-Type", "application/json; charset=utf-8")
-        elif request.path in ("/", "/index.html", "/key_levels.js", "/bollinger_bands.js"):
+        elif request.path in ("/", "/index.html", "/patterns", "/key-levels", "/macd-watch",
+                              "/key_levels.js", "/bollinger_bands.js"):
             filename = request.path.lstrip("/") if request.path.endswith(".js") else "index.html"
             payload = (ROOT / filename).read_bytes()
             self.send_response(200)
@@ -174,7 +175,7 @@ if __name__ == "__main__":
             pass
     server = ThreadingHTTPServer(("127.0.0.1", PORT), Handler)
     threading.Thread(target=scan_forever, daemon=True).start()
-    print(f"Triangle scanner: http://127.0.0.1:{PORT}", flush=True)
+    print(f"Candlepoint: http://127.0.0.1:{PORT}", flush=True)
     try:
         server.serve_forever()
     except KeyboardInterrupt:

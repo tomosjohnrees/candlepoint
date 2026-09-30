@@ -94,6 +94,20 @@ class ChartRouteTests(unittest.TestCase):
         handler.send_header.assert_any_call("Content-Type", "application/javascript; charset=utf-8")
         self.assertIn(b"function bollingerBandsForBars", handler.wfile.getvalue())
 
+    def test_view_paths_serve_the_dashboard(self):
+        for path in ("/patterns", "/key-levels", "/macd-watch"):
+            with self.subTest(path=path):
+                handler = app.Handler.__new__(app.Handler)
+                handler.path = path + "?chart=NEARUSDT&interval=1d"
+                handler.wfile = BytesIO()
+                handler.send_response = Mock()
+                handler.send_header = Mock()
+                handler.end_headers = Mock()
+                handler.do_GET()
+                handler.send_response.assert_called_once_with(200)
+                handler.send_header.assert_any_call("Content-Type", "text/html; charset=utf-8")
+                self.assertIn(b"Candlepoint", handler.wfile.getvalue())
+
 
 if __name__ == "__main__":
     unittest.main()
