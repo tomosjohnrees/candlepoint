@@ -10,8 +10,8 @@ from triangle_scanner import Candle, ema
 
 
 RSI_PERIOD = 14
-RSI_HIGH = 75
-RSI_LOW = 25
+RSI_HIGH = 80
+RSI_LOW = 20
 MACD_LOOKBACK = 180
 MIN_CANDLES = 36 + MACD_LOOKBACK
 

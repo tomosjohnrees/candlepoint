@@ -1,6 +1,7 @@
 """Hourly indicator screening on known price paths."""
 
 import unittest
+from unittest.mock import patch
 
 from hourly_extremes import detect_hourly_extreme, rsi_series
 from triangle_scanner import Candle
@@ -25,7 +26,7 @@ class HourlyExtremeTests(unittest.TestCase):
         result = detect_hourly_extreme("UPUSDT", bars, now_ms=bars[-1].close_time)
         self.assertEqual(result.stage, "Extreme high")
         self.assertTrue(result.provisional)
-        self.assertGreaterEqual(result.rsi, 75)
+        self.assertGreaterEqual(result.rsi, 80)
         self.assertGreaterEqual(result.macd_percentile, 95)
         self.assertGreater(result.macd_line, 0)
         self.assertEqual(len(result.candles), 48)
@@ -42,9 +43,17 @@ class HourlyExtremeTests(unittest.TestCase):
         result = detect_hourly_extreme("DOWNUSDT", bars, now_ms=bars[-1].close_time + 1)
         self.assertEqual(result.stage, "Extreme low")
         self.assertFalse(result.provisional)
-        self.assertLessEqual(result.rsi, 25)
+        self.assertLessEqual(result.rsi, 20)
         self.assertLessEqual(result.macd_percentile, 5)
         self.assertLess(result.macd_line, 0)
+
+    def test_rsi_cutoffs_are_80_and_20(self):
+        high_bars = candles([100] * 280 + [100 + i for i in range(1, 21)])
+        low_bars = candles([100] * 280 + [100 - i for i in range(1, 21)])
+        for value, expected, bars in ((79.9, False, high_bars), (80, True, high_bars),
+                                      (20.1, False, low_bars), (20, True, low_bars)):
+            with self.subTest(rsi=value), patch("hourly_extremes.rsi_series", return_value=[value]):
+                self.assertEqual(detect_hourly_extreme("EDGEUSDT", bars) is not None, expected)
 
     def test_short_or_duplicate_history_is_ignored(self):
         bars = candles([100] * 215)
