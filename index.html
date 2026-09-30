@@ -41,8 +41,11 @@
     .summary-item { background:#fff; border:1px solid #e1e8e6; border-radius:12px; padding:18px 20px; min-width:0 }
     .summary-item strong { display:block; font-size:27px; line-height:1; letter-spacing:-.05em; font-variant-numeric:tabular-nums; font-weight:700 }
     .summary-item span { display:block; color:#71838a; font-size:12px; margin-top:9px }
-    .results-heading { display:flex; align-items:end; justify-content:space-between; gap:12px; margin-bottom:14px }
+    .results-heading { display:flex; flex-wrap:wrap; align-items:end; justify-content:space-between; gap:12px; margin-bottom:14px }
     .results-heading h2 { font-size:19px; letter-spacing:-.035em; margin:0 }
+    .results-meta { display:flex; align-items:center; gap:18px; font-size:12px }
+    .results-meta a { color:#176d60; font-weight:650; text-decoration:none }
+    .results-meta a:hover { text-decoration:underline }
     .result-count { color:#71838a; font-size:13px }
     .tabs { display:flex; gap:28px; border-bottom:1px solid #dce5e3; margin-bottom:16px }
     .tabs button { border:0; border-bottom:2px solid transparent; border-radius:0; padding:12px 1px 13px; background:none; color:#71838a; font-size:13px; font-weight:600; white-space:nowrap }
@@ -89,6 +92,8 @@
     .badge.weekly-macd { color:#236d55; background:#eaf5ed; border-color:#d4ead9 }
     .badge.weekly-band { color:#4d6090; background:#edf0f8; border-color:#dfe5f3 }
     .badge.new { color:#155e8a; background:#eaf4fa; border-color:#d4e8f4 }
+    .badge[href] { text-decoration:none }
+    .badge[href]:hover { text-decoration:underline }
     .provisional { color:#9a7a47; font-size:11px; font-weight:600 }
     .mini-chart { min-width:0; height:72px; border-radius:6px; overflow:hidden; background:#f5f8f7 }
     .mini-chart canvas { width:100%; height:100%; display:block }
@@ -161,7 +166,7 @@
     <div class="page-heading"><p class="eyebrow">Binance · USDT and BTC spot</p><h1>Market signals</h1><p>Monthly, weekly BTC-pair, and 1-hour signals.</p></div>
     <div class="status" id="status" role="status">Starting…</div>
     <section class="summary" id="summary" aria-label="Scan summary"></section>
-    <div class="results-heading"><h2>Screening results</h2><span class="result-count" id="result-count"></span></div>
+    <div class="results-heading"><h2>Screening results</h2><div class="results-meta"><a href="/learn">Signal guide</a><span class="result-count" id="result-count"></span></div></div>
     <div class="tabs" role="tablist" aria-label="Signal category">
       <button id="patterns-tab" data-view="patterns" class="active" role="tab" aria-controls="cards" aria-selected="true">Patterns</button>
       <button id="levels-tab" data-view="key_levels" role="tab" aria-controls="cards" aria-selected="false">Key levels</button>
@@ -261,6 +266,7 @@
   </dialog>
   <script src="/key_levels.js"></script>
   <script src="/bollinger_bands.js"></script>
+  <script src="/signal_guides.js"></script>
   <script>
     const cards = document.querySelector('#cards');
     const status = document.querySelector('#status');
@@ -992,10 +998,19 @@
         match.level_signal === 'Crossed below' ? 'level-down' : 'level-near') :
         extreme ? (match.stage === 'Extreme high' ? 'extreme-high' : 'extreme-low') :
         watch ? 'watch' : shortBase ? 'base' : match.stage === 'breaking out' ? 'breaking' : '';
+      const badgeLink = (label, className) => {
+        const slug = signalGuideSlug(match, label);
+        const badge = el(slug ? 'a' : 'span', 'badge ' + className, label);
+        if (slug) {
+          badge.href = '/learn/' + slug;
+          badge.setAttribute('aria-label', 'About ' + label);
+        }
+        return badge;
+      };
       if (weeklyBtc) {
         for (const signal of match.signals)
-          sub.append(el('span', 'badge ' + (signal === 'MACD turning green' ? 'weekly-macd' : 'weekly-band'), signal));
-      } else sub.append(el('span', 'badge ' + badgeClass, level ? match.level_signal : watch ? 'Early MACD' : match.stage));
+          sub.append(badgeLink(signal, signal === 'MACD turning green' ? 'weekly-macd' : 'weekly-band'));
+      } else sub.append(badgeLink(level ? match.level_signal : watch ? 'Early MACD' : match.stage, badgeClass));
       if (match.is_new) {
         const newBadge = el('span', 'badge new', 'New');
         newBadge.title = 'Appeared in the latest completed scan';

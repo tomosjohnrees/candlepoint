@@ -61,6 +61,8 @@
     .badge.secondary { color:#4d6090; background:#edf0f8; border-color:#dfe5f3 }
     .badge.new { color:#155e8a; background:#eaf4fa; border-color:#d4e8f4 }
     .badge.provisional { color:#826c3e; background:#faf5e9; border-color:#eee5d0 }
+    .badge[href] { text-decoration:none }
+    .badge[href]:hover { text-decoration:underline }
     .reason { color:#526b71; font-size:13px; line-height:1.6; margin:0 0 19px; max-width:1000px }
     dl { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:16px 22px; margin:0 }
     dt { color:#829297; font-size:11px; line-height:1.35 }
@@ -91,6 +93,7 @@
     <div id="signals"></div>
   </main>
   <script src="/bollinger_bands.js"></script>
+  <script src="/signal_guides.js"></script>
   <script src="/coin.js"></script>
 </body>
 </html>

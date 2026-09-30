@@ -18,6 +18,8 @@ Candlepoint is a local, read-only market scanner for Binance USDT and BTC spot p
 
 Each result includes a price preview, its current status, and expandable signal details. The scan summary shows how many markets were screened and when the data was updated. Results based on an open candle are marked because they can change before the candle closes.
 
+Select a signal label on a result or coin page to open its plain-language guide. **Signal guide** above the results lists all eight explanations, including short-base breakouts, triangles, key levels, momentum watches, and weekly BTC conditions.
+
 Select a pair name or **View details** to open its own page. That page combines every current signal for the pair, all its scan metrics and explanations, and a chart. Switch between USD and BTC views there. The USD view uses the coin's Binance USDT market. The BTC view uses Binance candles when that spot market is trading. When the BTC market is paused or unavailable, it shows a calculated close-price comparison using the coin's USDT market divided by BTC/USDT, clearly labeled as an equivalent. If the pair leaves the latest scan, the page says so instead of showing stale signals.
 
 Focus **Search coin** to see every coin with a signal in the current scan, then type to narrow the list or choose one. The search narrows results across the tabs. After the second completed scan, signals absent from the preceding scan get a **New** badge. **New since last scan** shows only those signals. A change from approaching a level to crossing it, or a BTC pair gaining its second weekly condition, counts as new; a continuing signal on a later candle does not. The first scan has no earlier scan to compare.

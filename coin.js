@@ -35,7 +35,7 @@ function signalTitle(group, match) {
   if (group === 'hourly_extremes') return '1-hour extreme';
   if (group === 'key_levels') return 'Monthly key level';
   if (group === 'watchlist') return 'Monthly MACD watch';
-  return match.stage === 'short-base breakout' ? 'Short-base breakout' : 'Monthly triangle';
+  return match.stage === 'short-base breakout' ? 'Monthly pattern' : 'Monthly triangle';
 }
 const labels = {
   rsi:'RSI (14)', macd_line:'MACD line', macd_pct:'MACD as % of price',
@@ -69,7 +69,15 @@ function signalCard(group, match) {
   heading.append(node('h3', '', signalTitle(group, match)));
   const names = group === 'btc_weekly' ? match.signals :
     [group === 'key_levels' ? match.level_signal : group === 'watchlist' ? 'Early MACD' : match.stage];
-  for (const [index, name] of names.entries()) heading.append(node('span', 'badge' + (index ? ' secondary' : ''), name));
+  for (const [index, name] of names.entries()) {
+    const slug = signalGuideSlug(match, name);
+    const badge = node(slug ? 'a' : 'span', 'badge' + (index ? ' secondary' : ''), name);
+    if (slug) {
+      badge.href = '/learn/' + slug;
+      badge.setAttribute('aria-label', 'About ' + name);
+    }
+    heading.append(badge);
+  }
   if (match.is_new) heading.append(node('span', 'badge new', 'New'));
   if (match.provisional) heading.append(node('span', 'badge provisional',
     group === 'hourly_extremes' ? 'Open 1-hour candle' : group === 'btc_weekly' ? 'Open week' : 'Open month'));
