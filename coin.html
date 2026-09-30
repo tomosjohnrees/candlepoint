@@ -26,7 +26,6 @@
     .hero { display:flex; justify-content:space-between; align-items:end; gap:24px; margin:25px 0 24px }
     .eyebrow { color:#568078; text-transform:uppercase; font-size:11px; font-weight:750; letter-spacing:.12em; margin:0 0 9px }
     h1 { font-size:clamp(32px,4vw,48px); letter-spacing:-.055em; line-height:1.1; margin:0; font-weight:720 }
-    .quote { color:#8a9b9e; font-size:.53em; font-weight:500; letter-spacing:-.025em }
     .hero-copy { color:#687c82; font-size:13px; line-height:1.5; margin:9px 0 0 }
     .hero-price { text-align:right; font-variant-numeric:tabular-nums }
     .hero-price span { display:block; color:#7b8d92; font-size:11px; margin-bottom:5px }
@@ -79,7 +78,7 @@
     <a class="brand" href="/"><span class="brand-mark">C</span><span><span class="brand-name">Candlepoint</span><span class="brand-subtitle">Market signals</span></span></a>
   </div></header>
   <main>
-    <nav class="breadcrumbs" aria-label="Breadcrumb"><a href="/">All signals</a><span aria-hidden="true">/</span><span id="breadcrumb-pair" aria-current="page">Coin details</span></nav>
+    <nav class="breadcrumbs" aria-label="Breadcrumb"><a href="/">All signals</a><span aria-hidden="true">/</span><span id="breadcrumb-coin" aria-current="page">Coin details</span></nav>
     <div class="hero"><div><p class="eyebrow">Coin details</p><h1 id="coin-name">Loading…</h1><p class="hero-copy" id="hero-copy">Loading the latest scan for this pair.</p></div><div class="hero-price" id="hero-price" hidden><span>Last scanned price</span><strong id="price"></strong></div></div>
     <div class="summary" id="summary" role="status">Loading scan details…</div>
     <section class="panel chart-panel" id="chart-section" aria-labelledby="chart-heading" hidden>

@@ -1,7 +1,7 @@
 const pair = decodeURIComponent(location.pathname.split('/').pop());
 const isBtcPair = pair.endsWith('BTC') && !pair.endsWith('USDT');
 const base = pair.slice(0, isBtcPair ? -3 : -4);
-document.querySelector('#breadcrumb-pair').textContent = base + ' / ' + (isBtcPair ? 'BTC' : 'USDT');
+document.querySelector('#breadcrumb-coin').textContent = base;
 const coinName = document.querySelector('#coin-name');
 const summary = document.querySelector('#summary');
 const signals = document.querySelector('#signals');
@@ -315,8 +315,8 @@ async function refresh() {
     const response = await fetch('/api/coin?symbol=' + encodeURIComponent(pair));
     if (!response.ok) throw new Error('Could not load scan details');
     const data = await response.json();
-    document.title = pair + ' — Candlepoint';
-    coinName.replaceChildren(document.createTextNode(base), node('span', 'quote', ' / ' + (isBtcPair ? 'BTC' : 'USDT')));
+    document.title = base + ' — Candlepoint';
+    coinName.textContent = base;
     const count = data.signals.reduce((total, item) => total +
       (item.group === 'btc_weekly' ? item.match.signals.length : 1), 0);
     document.querySelector('#signal-count').textContent = count + (count === 1 ? ' signal' : ' signals');
