@@ -16,10 +16,12 @@ class ChartRouteTests(unittest.TestCase):
             self.old_watchlist = app.state["watchlist"]
             self.old_key_levels = app.state["key_levels"]
             self.old_hourly_extremes = app.state["hourly_extremes"]
+            self.old_btc_weekly = app.state["btc_weekly"]
             app.state["matches"] = [{"symbol": "NEARUSDT"}]
             app.state["watchlist"] = []
             app.state["key_levels"] = [{"symbol": "LEVELUSDT"}]
             app.state["hourly_extremes"] = [{"symbol": "HOURUSDT"}]
+            app.state["btc_weekly"] = [{"symbol": "ETHBTC"}]
 
     def tearDown(self):
         with app.lock:
@@ -27,6 +29,7 @@ class ChartRouteTests(unittest.TestCase):
             app.state["watchlist"] = self.old_watchlist
             app.state["key_levels"] = self.old_key_levels
             app.state["hourly_extremes"] = self.old_hourly_extremes
+            app.state["btc_weekly"] = self.old_btc_weekly
 
     def request(self, query):
         handler = app.Handler.__new__(app.Handler)
@@ -73,6 +76,12 @@ class ChartRouteTests(unittest.TestCase):
         fetch.assert_called_once_with("HOURUSDT", "1h", max_bars=1000)
         handler.send_response.assert_called_once_with(200)
 
+    def test_weekly_btc_result_can_open_weekly_chart(self):
+        with patch.object(app, "historical_candles", return_value=[]) as fetch:
+            handler = self.request("symbol=ETHBTC&interval=1w")
+        fetch.assert_called_once_with("ETHBTC", "1w")
+        handler.send_response.assert_called_once_with(200)
+
     def test_unsupported_interval_is_rejected(self):
         with patch.object(app, "historical_candles") as fetch:
             handler = self.request("symbol=NEARUSDT&interval=1m")
@@ -104,7 +113,7 @@ class ChartRouteTests(unittest.TestCase):
         self.assertIn(b"function bollingerBandsForBars", handler.wfile.getvalue())
 
     def test_view_paths_serve_the_dashboard(self):
-        for path in ("/patterns", "/key-levels", "/macd-watch", "/hourly-extremes"):
+        for path in ("/patterns", "/key-levels", "/macd-watch", "/hourly-extremes", "/btc-weekly"):
             with self.subTest(path=path):
                 handler = app.Handler.__new__(app.Handler)
                 handler.path = path + "?chart=NEARUSDT&interval=1d"
@@ -133,6 +142,25 @@ class ScanIsolationTests(unittest.TestCase):
         self.assertIsNone(hourly_error)
 
 
+class WeeklyScanTests(unittest.TestCase):
+    def test_btc_weekly_results_join_the_completed_scan(self):
+        weekly = Mock()
+        weekly.to_dict.return_value = {
+            "symbol": "ETHBTC", "stage": "weekly BTC",
+            "signals": ["MACD turning green"], "distance_above_band_pct": 0.5,
+        }
+        with patch.dict(app.state, {"updated_at": None}, clear=False), \
+             patch.object(app, "active_usdt_symbols", return_value=[]), \
+             patch.object(app, "active_btc_symbols", return_value=["ETHBTC"]), \
+             patch.object(app, "_scan_btc_symbol", return_value=weekly), \
+             patch.object(app, "save_state"):
+            app.scan_once()
+            self.assertEqual(app.state["universe"], 1)
+            self.assertEqual(app.state["scanned"], 1)
+            self.assertEqual(app.state["btc_weekly"][0]["symbol"], "ETHBTC")
+            self.assertFalse(app.state["btc_weekly"][0]["is_new"])
+
+
 class NewSignalTests(unittest.TestCase):
     def test_new_results_are_compared_with_the_previous_completed_scan(self):
         previous = {
@@ -141,6 +169,7 @@ class NewSignalTests(unittest.TestCase):
             "key_levels": [{"symbol": "BTCUSDT", "level_signal": "Approaching from below",
                             "level_price": 100}],
             "hourly_extremes": [],
+            "btc_weekly": [{"symbol": "ETHBTC", "signals": ["MACD turning green"]}],
         }
         current = {
             "matches": [{"symbol": "NEARUSDT", "stage": "near breakout", "month": "2026-09"},
@@ -149,10 +178,12 @@ class NewSignalTests(unittest.TestCase):
             "key_levels": [{"symbol": "BTCUSDT", "level_signal": "Crossed above",
                             "level_price": 100}],
             "hourly_extremes": [],
+            "btc_weekly": [{"symbol": "ETHBTC", "signals": ["MACD turning green", "Above upper band"]}],
         }
         app.mark_new_signals(current, previous)
         self.assertEqual([item["is_new"] for item in current["matches"]], [False, True])
         self.assertTrue(current["key_levels"][0]["is_new"])
+        self.assertTrue(current["btc_weekly"][0]["is_new"])
 
     def test_first_scan_has_no_new_badges_without_a_baseline(self):
         current = {group: [] for group in app.RESULT_GROUPS}

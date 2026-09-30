@@ -12,10 +12,12 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlsplit
 
-from binance_data import active_usdt_symbols, hourly_candles, historical_candles, monthly_candles
+from binance_data import (active_btc_symbols, active_usdt_symbols, hourly_candles,
+                          historical_candles, monthly_candles, weekly_candles)
 from hourly_extremes import detect_hourly_extreme
 from monthly_key_levels import detect_key_level_signal
 from triangle_scanner import detect, detect_macd_watch, detect_short_base_breakout
+from weekly_btc import detect_weekly_btc
 
 
 ROOT = Path(__file__).resolve().parent
@@ -28,14 +30,16 @@ scan_lock = threading.Lock()
 state = {
     "status": "Waiting for first scan", "updated_at": None, "scanned": 0,
     "universe": 0, "errors": 0, "matches": [], "watchlist": [],
-    "key_levels": [], "hourly_extremes": [], "last_error": None,
+    "key_levels": [], "hourly_extremes": [], "btc_weekly": [], "last_error": None,
     "comparison_available": False,
 }
-RESULT_GROUPS = ("matches", "watchlist", "key_levels", "hourly_extremes")
+RESULT_GROUPS = ("matches", "watchlist", "key_levels", "hourly_extremes", "btc_weekly")
 
 
 def signal_identity(group: str, item: dict) -> tuple:
     """Identify a signal across scans without treating a new candle as a new result."""
+    if group == "btc_weekly":
+        return (group, item["symbol"], tuple(item["signals"]))
     return (group, item["symbol"], item.get("stage", item.get("level_signal")),
             item.get("level_price") if group == "key_levels" else None)
 
@@ -67,34 +71,43 @@ def scan_once() -> None:
             state["errors"] = 0
             state["last_error"] = None
         symbols = active_usdt_symbols(limit=MAX_SYMBOLS)
+        btc_symbols = active_btc_symbols(limit=MAX_SYMBOLS)
         matches = []
         watchlist = []
         key_levels = []
         hourly_extremes = []
+        btc_weekly = []
         with lock:
-            state["universe"] = len(symbols)
+            state["universe"] = len(symbols) + len(btc_symbols)
         with ThreadPoolExecutor(max_workers=4) as pool:
-            futures = {pool.submit(_scan_symbol, symbol): symbol for symbol in symbols}
+            futures = {pool.submit(_scan_symbol, symbol): (symbol, "USDT") for symbol in symbols}
+            futures.update({pool.submit(_scan_btc_symbol, symbol): (symbol, "BTC")
+                            for symbol in btc_symbols})
             for future in as_completed(futures):
-                symbol = futures[future]
+                symbol, quote_asset = futures[future]
                 try:
-                    match, watch, key_level, extreme, monthly_error, hourly_error = future.result()
-                    if match:
-                        matches.append(match.to_dict())
-                    elif watch:
-                        watchlist.append(watch.to_dict())
-                    if key_level:
-                        key_levels.append(key_level.to_dict())
-                    if extreme:
-                        hourly_extremes.append(extreme.to_dict())
-                    if monthly_error:
-                        with lock:
-                            state["errors"] += 1
-                            state["last_error"] = f"{symbol} monthly: {monthly_error}"
-                    if hourly_error:
-                        with lock:
-                            state["errors"] += 1
-                            state["last_error"] = f"{symbol} 1-hour: {hourly_error}"
+                    if quote_asset == "BTC":
+                        weekly = future.result()
+                        if weekly:
+                            btc_weekly.append(weekly.to_dict())
+                    else:
+                        match, watch, key_level, extreme, monthly_error, hourly_error = future.result()
+                        if match:
+                            matches.append(match.to_dict())
+                        elif watch:
+                            watchlist.append(watch.to_dict())
+                        if key_level:
+                            key_levels.append(key_level.to_dict())
+                        if extreme:
+                            hourly_extremes.append(extreme.to_dict())
+                        if monthly_error:
+                            with lock:
+                                state["errors"] += 1
+                                state["last_error"] = f"{symbol} monthly: {monthly_error}"
+                        if hourly_error:
+                            with lock:
+                                state["errors"] += 1
+                                state["last_error"] = f"{symbol} 1-hour: {hourly_error}"
                 except Exception as exc:
                     with lock:
                         state["errors"] += 1
@@ -107,8 +120,11 @@ def scan_once() -> None:
         key_levels.sort(key=lambda item: (item["level_signal"].startswith("Approaching"),
                                           abs(item["distance_pct"])))
         hourly_extremes.sort(key=lambda item: abs(item["rsi"] - 50), reverse=True)
+        btc_weekly.sort(key=lambda item: (len(item["signals"]), item["distance_above_band_pct"]),
+                        reverse=True)
         results = {"matches": matches, "watchlist": watchlist,
-                   "key_levels": key_levels, "hourly_extremes": hourly_extremes}
+                   "key_levels": key_levels, "hourly_extremes": hourly_extremes,
+                   "btc_weekly": btc_weekly}
         mark_new_signals(results, previous)
         with lock:
             state.update(status="Ready", updated_at=datetime.now(timezone.utc).isoformat(),
@@ -140,6 +156,10 @@ def _scan_symbol(symbol: str):
     return match, watch, key_level, extreme, monthly_error, hourly_error
 
 
+def _scan_btc_symbol(symbol: str):
+    return detect_weekly_btc(symbol, weekly_candles(symbol))
+
+
 def scan_forever() -> None:
     while True:
         scan_once()
@@ -164,7 +184,7 @@ class Handler(BaseHTTPRequestHandler):
                 self.send_error(400, "Unsupported candle interval")
                 return
             with lock:
-                available = any(item["symbol"] == symbol for group in ("matches", "watchlist", "key_levels", "hourly_extremes")
+                available = any(item["symbol"] == symbol for group in RESULT_GROUPS
                                 for item in state.get(group, []))
             if not available:
                 self.send_error(404, "Chart unavailable")
@@ -181,7 +201,7 @@ class Handler(BaseHTTPRequestHandler):
             }).encode()
             self.send_response(200)
             self.send_header("Content-Type", "application/json; charset=utf-8")
-        elif request.path in ("/", "/index.html", "/patterns", "/key-levels", "/macd-watch", "/hourly-extremes",
+        elif request.path in ("/", "/index.html", "/patterns", "/key-levels", "/macd-watch", "/hourly-extremes", "/btc-weekly",
                               "/key_levels.js", "/bollinger_bands.js"):
             filename = request.path.lstrip("/") if request.path.endswith(".js") else "index.html"
             payload = (ROOT / filename).read_bytes()
