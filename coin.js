@@ -147,7 +147,7 @@ async function loadChart() {
   } catch (error) {
     if (id !== requestId) return;
     document.querySelector('#chart-note').textContent = 'Chart history is unavailable.';
-    readout.textContent = (quote === 'USDT' ? 'USD (USDT)' : 'BTC') +
+    readout.textContent = (quote === 'USDT' ? 'USD' : 'BTC') +
       ' chart unavailable for this pair right now.';
     drawCharts();
   }

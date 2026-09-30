@@ -199,9 +199,9 @@
         </select>
       </div>
       <div class="subfilter symbol-search" id="symbol-search-field">
-        <label for="symbol-search">Search symbol</label>
-        <input id="symbol-search" type="search" placeholder="Choose or type a symbol" maxlength="30" autocomplete="off" role="combobox" aria-autocomplete="list" aria-haspopup="listbox" aria-controls="symbol-options" aria-expanded="false">
-        <div class="symbol-options" id="symbol-options" role="listbox" aria-label="Available symbols" hidden></div>
+        <label for="symbol-search">Search coin</label>
+        <input id="symbol-search" type="search" placeholder="Choose or type a coin" maxlength="30" autocomplete="off" role="combobox" aria-autocomplete="list" aria-haspopup="listbox" aria-controls="symbol-options" aria-expanded="false">
+        <div class="symbol-options" id="symbol-options" role="listbox" aria-label="Available coins" hidden></div>
       </div>
       <label class="new-filter" title="Signals absent from the previous completed scan"><input id="new-only" type="checkbox" disabled> New since last scan</label>
     </div>
@@ -221,7 +221,7 @@
             <span class="chart-control-label" id="quote-label">Chart price in</span>
             <div class="chart-intervals" role="group" aria-labelledby="quote-label">
               <button type="button" data-chart-quote="BTC">BTC</button>
-              <button type="button" data-chart-quote="USDT">USD (USDT)</button>
+              <button type="button" data-chart-quote="USDT">USD</button>
             </div>
           </div>
           <div class="chart-control-group">
@@ -369,11 +369,15 @@
     }
     let activeSymbolOption = -1;
     let symbolOptionsSignature = null;
-    function availableSymbols() {
+    function coinForSymbol(symbol) {
+      return symbol.endsWith('USDT') ? symbol.slice(0, -4) :
+        symbol.endsWith('BTC') ? symbol.slice(0, -3) : symbol;
+    }
+    function availableCoins() {
       if (!latestData) return [];
       const groups = ['matches', 'watchlist', 'key_levels', 'hourly_extremes', 'btc_weekly'];
       return [...new Set(groups.flatMap(group => (latestData[group] || [])
-        .filter(item => !newOnlyToggle.checked || item.is_new).map(item => item.symbol)))].sort();
+        .filter(item => !newOnlyToggle.checked || item.is_new).map(item => coinForSymbol(item.symbol))))].sort();
     }
     function closeSymbolOptions() {
       symbolOptions.hidden = true;
@@ -382,8 +386,8 @@
       symbolSearch.setAttribute('aria-expanded', 'false');
       symbolSearch.removeAttribute('aria-activedescendant');
     }
-    function chooseSymbol(symbol) {
-      symbolSearch.value = symbol;
+    function chooseSymbol(coin) {
+      symbolSearch.value = coin;
       symbolSearch.focus();
       closeSymbolOptions();
       if (latestData) render(latestData);
@@ -392,25 +396,24 @@
     function updateSymbolOptions() {
       if (symbolOptions.hidden) return;
       const query = symbolSearch.value.trim().toUpperCase();
-      const symbols = availableSymbols().filter(symbol => symbol.includes(query));
-      const signature = query + '|' + symbols.join('|');
+      const coins = availableCoins().filter(coin => coin.includes(query));
+      const signature = query + '|' + coins.join('|');
       if (signature === symbolOptionsSignature) return;
       symbolOptionsSignature = signature;
       activeSymbolOption = -1;
       symbolSearch.removeAttribute('aria-activedescendant');
-      symbolOptions.replaceChildren(...symbols.map((symbol, index) => {
-        const quote = symbol.endsWith('USDT') ? 'USDT' : 'BTC';
-        const option = el('button', 'symbol-option', symbol.slice(0, -quote.length) + ' / ' + quote);
+      symbolOptions.replaceChildren(...coins.map((coin, index) => {
+        const option = el('button', 'symbol-option', coin);
         option.type = 'button';
         option.id = 'symbol-option-' + index;
-        option.dataset.symbol = symbol;
+        option.dataset.coin = coin;
         option.setAttribute('role', 'option');
         option.setAttribute('aria-selected', 'false');
-        option.onclick = () => chooseSymbol(symbol);
+        option.onclick = () => chooseSymbol(coin);
         return option;
       }));
-      if (!symbols.length) symbolOptions.append(el('p', 'symbol-options-empty',
-        latestData ? 'No available symbols match.' : 'Waiting for scan results…'));
+      if (!coins.length) symbolOptions.append(el('p', 'symbol-options-empty',
+        latestData ? 'No available coins match.' : 'Waiting for scan results…'));
     }
     function openSymbolOptions() {
       symbolOptions.hidden = false;
@@ -1110,8 +1113,9 @@
       newOnlyToggle.disabled = !data.comparison_available;
       if (newOnlyToggle.disabled) newOnlyToggle.checked = false;
       const query = symbolSearch.value.trim().toUpperCase();
-      const exactSymbol = availableSymbols().includes(query);
-      const included = match => (!query || (exactSymbol ? match.symbol === query : match.symbol.includes(query))) &&
+      const exactCoin = availableCoins().includes(query);
+      const included = match => (!query || (exactCoin ? coinForSymbol(match.symbol) === query :
+        coinForSymbol(match.symbol).includes(query) || match.symbol.includes(query))) &&
         (!newOnlyToggle.checked || match.is_new);
       const counts = {patterns:matches.filter(included).length, key_levels:keyLevels.filter(included).length,
         watchlist:watchlist.filter(included).length, hourly_extremes:extremes.filter(included).length,
@@ -1150,7 +1154,7 @@
             'Approaching from above':'No assets are approaching a monthly key level from above in this scan.'
           };
           const emptyMessage = data.status === 'Scanning' && !data.updated_at ? 'Scanning markets…' :
-            query ? 'No symbols matching “' + symbolSearch.value.trim() + '” in this view.' :
+            query ? 'No coins matching “' + symbolSearch.value.trim() + '” in this view.' :
             newOnlyToggle.checked ? 'No new signals in this view since the previous scan.' :
             view === 'key_levels' && levelFilter !== 'all' ? levelEmpty[levelFilter] :
             view === 'patterns' && patternFilter !== 'all' ? 'No ' + patternFilter + ' signals in this scan.' :
@@ -1248,7 +1252,7 @@
       } else if (event.key === 'Enter' && !symbolOptions.hidden) {
         event.preventDefault();
         const option = symbolOptions.querySelectorAll('[role="option"]')[activeSymbolOption];
-        if (option) chooseSymbol(option.dataset.symbol);
+        if (option) chooseSymbol(option.dataset.coin);
         else closeSymbolOptions();
       } else if (event.key === 'Escape' && !symbolOptions.hidden) {
         event.preventDefault();
