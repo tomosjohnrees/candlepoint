@@ -18,6 +18,7 @@ from binance_data import (active_btc_symbols, active_usdt_symbols, hourly_candle
                           historical_candles, monthly_candles, spot_symbol_trading,
                           weekly_candles)
 from hourly_extremes import detect_hourly_extreme
+from btc_resilience import detect_btc_resilience
 from monthly_key_levels import detect_key_level_signal
 from triangle_scanner import detect, detect_macd_watch, detect_short_base_breakout
 from weekly_btc import detect_weekly_btc
@@ -33,14 +34,14 @@ scan_lock = threading.Lock()
 state = {
     "status": "Waiting for first scan", "updated_at": None, "scanned": 0,
     "universe": 0, "errors": 0, "matches": [], "watchlist": [],
-    "key_levels": [], "hourly_extremes": [], "btc_weekly": [], "last_error": None,
+    "key_levels": [], "hourly_extremes": [], "btc_weekly": [], "btc_resilience": [], "last_error": None,
     "comparison_available": False,
 }
-RESULT_GROUPS = ("matches", "watchlist", "key_levels", "hourly_extremes", "btc_weekly")
+RESULT_GROUPS = ("matches", "watchlist", "key_levels", "hourly_extremes", "btc_weekly", "btc_resilience")
 SYMBOL_PATTERN = re.compile(r"[A-Z0-9]{1,30}(?:USDT|BTC)\Z")
 SIGNAL_GUIDE_SLUGS = frozenset((
     "short-base-breakout", "near-breakout", "breaking-out", "monthly-key-level",
-    "early-macd", "hourly-extremes", "weekly-macd", "weekly-upper-band",
+    "early-macd", "hourly-extremes", "weekly-macd", "weekly-upper-band", "btc-resilience",
 ))
 
 
@@ -56,7 +57,7 @@ def mark_new_signals(results: dict, previous: dict | None) -> None:
     previous_ids = ({signal_identity(group, item) for group in RESULT_GROUPS
                      for item in previous.get(group, [])} if previous else set())
     for group in RESULT_GROUPS:
-        for item in results[group]:
+        for item in results.get(group, []):
             item["is_new"] = previous is not None and signal_identity(group, item) not in previous_ids
 
 
@@ -85,10 +86,22 @@ def scan_once() -> None:
         key_levels = []
         hourly_extremes = []
         btc_weekly = []
+        btc_resilience = []
+        # One benchmark and one cutoff for every coin, even across an hour boundary.
+        scan_now_ms = int(time.time() * 1000)
+        bitcoin = None
+        if symbols:
+            try:
+                bitcoin = hourly_candles("BTCUSDT")
+            except Exception as exc:
+                with lock:
+                    state["errors"] += 1
+                    state["last_error"] = f"BTC resilience benchmark unavailable: {exc}"
         with lock:
             state["universe"] = len(symbols) + len(btc_symbols)
         with ThreadPoolExecutor(max_workers=4) as pool:
-            futures = {pool.submit(_scan_symbol, symbol): (symbol, "USDT") for symbol in symbols}
+            futures = {pool.submit(_scan_symbol, symbol, bitcoin, scan_now_ms): (symbol, "USDT")
+                       for symbol in symbols}
             futures.update({pool.submit(_scan_btc_symbol, symbol): (symbol, "BTC")
                             for symbol in btc_symbols})
             for future in as_completed(futures):
@@ -99,7 +112,7 @@ def scan_once() -> None:
                         if weekly:
                             btc_weekly.append(weekly.to_dict())
                     else:
-                        match, watch, key_level, extreme, monthly_error, hourly_error = future.result()
+                        match, watch, key_level, extreme, resilience, monthly_error, hourly_error = future.result()
                         if match:
                             matches.append(match.to_dict())
                         elif watch:
@@ -108,6 +121,8 @@ def scan_once() -> None:
                             key_levels.append(key_level.to_dict())
                         if extreme:
                             hourly_extremes.append(extreme.to_dict())
+                        if resilience:
+                            btc_resilience.append(resilience.to_dict())
                         if monthly_error:
                             with lock:
                                 state["errors"] += 1
@@ -130,9 +145,10 @@ def scan_once() -> None:
         hourly_extremes.sort(key=lambda item: abs(item["rsi"] - 50), reverse=True)
         btc_weekly.sort(key=lambda item: (len(item["signals"]), item["distance_above_band_pct"]),
                         reverse=True)
+        btc_resilience.sort(key=lambda item: (-item["strength_score"], item["symbol"]))
         results = {"matches": matches, "watchlist": watchlist,
                    "key_levels": key_levels, "hourly_extremes": hourly_extremes,
-                   "btc_weekly": btc_weekly}
+                   "btc_weekly": btc_weekly, "btc_resilience": btc_resilience}
         mark_new_signals(results, previous)
         with lock:
             state.update(status="Ready", updated_at=datetime.now(timezone.utc).isoformat(),
@@ -147,7 +163,7 @@ def scan_once() -> None:
         scan_lock.release()
 
 
-def _scan_symbol(symbol: str):
+def _scan_symbol(symbol: str, bitcoin=None, now_ms=None):
     try:
         candles = monthly_candles(symbol)
         match = detect(symbol, candles) or detect_short_base_breakout(symbol, candles)
@@ -157,11 +173,13 @@ def _scan_symbol(symbol: str):
     except Exception as exc:
         match, watch, key_level, monthly_error = None, None, None, exc
     try:
-        extreme = detect_hourly_extreme(symbol, hourly_candles(symbol))
+        hours = bitcoin if symbol == "BTCUSDT" and bitcoin is not None else hourly_candles(symbol)
+        extreme = detect_hourly_extreme(symbol, hours)
+        resilience = detect_btc_resilience(symbol, hours, bitcoin, now_ms) if bitcoin is not None else None
         hourly_error = None
     except Exception as exc:
-        extreme, hourly_error = None, exc
-    return match, watch, key_level, extreme, monthly_error, hourly_error
+        extreme, resilience, hourly_error = None, None, exc
+    return match, watch, key_level, extreme, resilience, monthly_error, hourly_error
 
 
 def _scan_btc_symbol(symbol: str):
@@ -273,7 +291,7 @@ class Handler(BaseHTTPRequestHandler):
             payload = (ROOT / "learn.html").read_bytes()
             self.send_response(200)
             self.send_header("Content-Type", "text/html; charset=utf-8")
-        elif request.path in ("/", "/index.html", "/patterns", "/key-levels", "/macd-watch", "/hourly-extremes", "/btc-weekly",
+        elif request.path in ("/", "/index.html", "/patterns", "/key-levels", "/macd-watch", "/hourly-extremes", "/btc-weekly", "/btc-resilience",
                               "/key_levels.js", "/bollinger_bands.js", "/coin.js", "/signal_guides.js", "/learn.js"):
             filename = request.path.lstrip("/") if request.path.endswith(".js") else "index.html"
             payload = (ROOT / filename).read_bytes()

@@ -162,7 +162,7 @@ class ChartRouteTests(unittest.TestCase):
         self.assertIn(b"function bollingerBandsForBars", handler.wfile.getvalue())
 
     def test_view_paths_serve_the_dashboard(self):
-        for path in ("/patterns", "/key-levels", "/macd-watch", "/hourly-extremes", "/btc-weekly"):
+        for path in ("/patterns", "/key-levels", "/macd-watch", "/hourly-extremes", "/btc-weekly", "/btc-resilience"):
             with self.subTest(path=path):
                 handler = app.Handler.__new__(app.Handler)
                 handler.path = path + "?chart=NEARUSDT&interval=1d"
@@ -238,11 +238,22 @@ class CoinPageTests(unittest.TestCase):
 
 
 class ScanIsolationTests(unittest.TestCase):
+    def test_hourly_history_is_shared_with_resilience(self):
+        hours, bitcoin = [Mock()], [Mock()]
+        with patch.object(app, "monthly_candles", side_effect=RuntimeError("unavailable")), \
+             patch.object(app, "hourly_candles", return_value=hours) as hourly, \
+             patch.object(app, "detect_hourly_extreme", return_value="extreme"), \
+             patch.object(app, "detect_btc_resilience", return_value="resilient") as detector:
+            result = app._scan_symbol("ALTUSDT", bitcoin, 123)
+        hourly.assert_called_once_with("ALTUSDT")
+        detector.assert_called_once_with("ALTUSDT", hours, bitcoin, 123)
+        self.assertEqual(result[3:5], ("extreme", "resilient"))
+
     def test_hourly_scan_still_runs_when_monthly_data_fails(self):
         with patch.object(app, "monthly_candles", side_effect=RuntimeError("monthly unavailable")), \
              patch.object(app, "hourly_candles", return_value=[]) as hourly, \
              patch.object(app, "detect_hourly_extreme", return_value="hourly match"):
-            match, watch, level, extreme, monthly_error, hourly_error = app._scan_symbol("HOURUSDT")
+            match, watch, level, extreme, resilience, monthly_error, hourly_error = app._scan_symbol("HOURUSDT")
         hourly.assert_called_once_with("HOURUSDT")
         self.assertIsNone(match)
         self.assertIsNone(watch)
@@ -269,6 +280,45 @@ class WeeklyScanTests(unittest.TestCase):
             self.assertEqual(app.state["scanned"], 1)
             self.assertEqual(app.state["btc_weekly"][0]["symbol"], "ETHBTC")
             self.assertFalse(app.state["btc_weekly"][0]["is_new"])
+
+
+class ResilienceScanTests(unittest.TestCase):
+    def test_benchmark_fetched_once_and_results_sorted_and_compared(self):
+        def scan(symbol, bitcoin, now_ms):
+            self.assertEqual(bitcoin, ["benchmark"])
+            self.assertIsInstance(now_ms, int)
+            result = Mock()
+            result.to_dict.return_value = {"symbol": symbol, "stage": "BTC resilience",
+                                           "strength_score": 2 if symbol == "AUSDT" else 48}
+            return None, None, None, None, result, None, None
+
+        with patch.dict(app.state, {"updated_at": "previous", "btc_resilience": [
+                {"symbol": "BUSDT", "stage": "BTC resilience", "strength_score": 30}] }), \
+             patch.object(app, "active_usdt_symbols", return_value=["AUSDT", "BUSDT"]), \
+             patch.object(app, "active_btc_symbols", return_value=[]), \
+             patch.object(app, "hourly_candles", return_value=["benchmark"]) as hourly, \
+             patch.object(app, "_scan_symbol", side_effect=scan) as scanner, \
+             patch.object(app, "save_state"):
+            app.scan_once()
+            hourly.assert_called_once_with("BTCUSDT")
+            self.assertEqual(scanner.call_args_list[0].args[2], scanner.call_args_list[1].args[2])
+            self.assertEqual([r["symbol"] for r in app.state["btc_resilience"]], ["BUSDT", "AUSDT"])
+            self.assertEqual([r["is_new"] for r in app.state["btc_resilience"]], [False, True])
+            self.assertEqual(app.state["scanned"], 2)
+
+    def test_failed_benchmark_clears_old_results_and_preserves_other_screens(self):
+        with patch.dict(app.state, {"btc_resilience": [{"symbol": "OLDUSDT"}]}), \
+             patch.object(app, "active_usdt_symbols", return_value=["ALTUSDT"]), \
+             patch.object(app, "active_btc_symbols", return_value=[]), \
+             patch.object(app, "hourly_candles", side_effect=RuntimeError("unavailable")), \
+             patch.object(app, "_scan_symbol", return_value=(None,) * 7) as scanner, \
+             patch.object(app, "save_state"):
+            app.scan_once()
+            self.assertEqual(app.state["status"], "Ready")
+            self.assertEqual(app.state["btc_resilience"], [])
+            self.assertEqual(app.state["errors"], 1)
+            self.assertIn("benchmark unavailable", app.state["last_error"])
+            self.assertIsNone(scanner.call_args.args[1])
 
 
 class NewSignalTests(unittest.TestCase):
