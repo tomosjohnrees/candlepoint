@@ -36,7 +36,7 @@
     .status-copy strong { color:#223940; font-weight:650 }
     .status-time { margin-left:auto; text-align:right; white-space:nowrap; font-size:12px; color:#809096 }
     .error { color:#ad4842; font-size:12px }
-    .summary { display:grid; grid-template-columns:repeat(6,minmax(0,1fr)); gap:12px; margin:18px 0 34px }
+    .summary { display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); gap:12px; margin:18px 0 34px }
     .summary-item { background:#fff; border:1px solid #e1e8e6; border-radius:12px; padding:18px 20px; min-width:0 }
     .summary-item strong { display:block; font-size:27px; line-height:1; letter-spacing:-.05em; font-variant-numeric:tabular-nums; font-weight:700 }
     .summary-item span { display:block; color:#71838a; font-size:12px; margin-top:9px }
@@ -46,7 +46,7 @@
     .results-meta a { color:#176d60; font-weight:650; text-decoration:none }
     .results-meta a:hover { text-decoration:underline }
     .result-count { color:#71838a; font-size:13px }
-    .tabs { display:flex; gap:28px; border-bottom:1px solid #dce5e3; margin-bottom:16px }
+    .tabs { display:flex; flex-wrap:wrap; gap:0 28px; border-bottom:1px solid #dce5e3; margin-bottom:16px }
     .tabs button { border:0; border-bottom:2px solid transparent; border-radius:0; padding:12px 1px 13px; background:none; color:#71838a; font-size:13px; font-weight:600; white-space:nowrap }
     .tabs button:hover { color:#244841 }
     .tabs button.active { color:#16584c; border-bottom-color:#1e7967 }
@@ -79,6 +79,7 @@
     .head h3 a:hover { color:#176d60; text-decoration:underline }
     .symbol-pair { color:#8a9b9e; font-weight:500 }
     .head-sub { display:flex; align-items:center; flex-wrap:wrap; gap:6px; margin-top:7px }
+    .strength-context { color:#60767a; font-size:11px; line-height:1.5; margin-top:7px }
     .badge { display:inline-block; border:1px solid #e1e8e6; border-radius:5px; background:#f3f6f5; color:#61757a; padding:4px 7px; font-size:10px; font-weight:750; letter-spacing:.045em; text-transform:uppercase; line-height:1 }
     .badge.breaking { color:#236d55; background:#eaf5ed; border-color:#d4ead9 }
     .badge.base { color:#4d6090; background:#edf0f8; border-color:#dfe5f3 }
@@ -90,6 +91,7 @@
     .badge.extreme-low { color:#236d55; background:#eaf5ed; border-color:#d4ead9 }
     .badge.weekly-macd { color:#236d55; background:#eaf5ed; border-color:#d4ead9 }
     .badge.weekly-band { color:#4d6090; background:#edf0f8; border-color:#dfe5f3 }
+    .badge.resilience { color:#236d55; background:#eaf5ed; border-color:#d4ead9 }
     .badge.new { color:#155e8a; background:#eaf4fa; border-color:#d4e8f4 }
     .badge[href] { text-decoration:none }
     .badge[href]:hover { text-decoration:underline }
@@ -171,6 +173,7 @@
       <button id="macd-tab" data-view="watchlist" role="tab" aria-controls="cards" aria-selected="false">MACD watch</button>
       <button id="extremes-tab" data-view="hourly_extremes" role="tab" aria-controls="cards" aria-selected="false">1-hour extremes</button>
       <button id="btc-tab" data-view="btc_weekly" role="tab" aria-controls="cards" aria-selected="false">BTC weekly</button>
+      <button id="resilience-tab" data-view="btc_resilience" role="tab" aria-controls="cards" aria-selected="false">BTC resilience</button>
     </div>
     <div class="subfilters">
       <div class="subfilter" id="pattern-subfilter">
@@ -207,6 +210,7 @@
       </div>
       <label class="new-filter" title="Signals absent from the previous completed scan"><input id="new-only" type="checkbox" disabled> New since last scan</label>
     </div>
+    <p class="strength-context" id="resilience-description" hidden>Coins gaining USDT while BTC is down over the last 24 completed hours. Ranked by gain × time: each qualifying hourly close adds the coin’s gain from the window’s starting price. Higher scores mean larger or more sustained gains.</p>
     <p class="route-notice" id="route-notice" role="status" hidden></p>
     <section id="cards" role="tabpanel" aria-labelledby="patterns-tab" aria-live="polite" tabindex="0"></section>
   </main>
@@ -286,7 +290,7 @@
     const keyLevelsToggle = document.querySelector('#key-levels-toggle');
     const bollingerToggle = document.querySelector('#bollinger-toggle');
     const routeNotice = document.querySelector('#route-notice');
-    const viewPaths = {patterns:'/patterns', key_levels:'/key-levels', watchlist:'/macd-watch', hourly_extremes:'/hourly-extremes', btc_weekly:'/btc-weekly'};
+    const viewPaths = {patterns:'/patterns', key_levels:'/key-levels', watchlist:'/macd-watch', hourly_extremes:'/hourly-extremes', btc_weekly:'/btc-weekly', btc_resilience:'/btc-resilience'};
     const managedParams = ['pattern', 'direction', 'btc_signal', 'q', 'new', 'chart', 'quote', 'interval', 'range', 'levels', 'bands', 'detail'];
     let showKeyLevels = false;
     let showBollingerBands = true;
@@ -317,7 +321,7 @@
         chart:chart && /^[A-Z0-9]{1,30}(?:USDT|BTC)$/.test(chart) ? chart : null,
         quote:params.get('quote') === 'USDT' ? 'USDT' : 'BTC',
         interval:['1h', '1d', '1w', '1M', '1Y'].includes(interval) ? interval :
-          routeView === 'hourly_extremes' ? '1h' : routeView === 'btc_weekly' ? '1w' : '1M',
+          routeView === 'hourly_extremes' || routeView === 'btc_resilience' ? '1h' : routeView === 'btc_weekly' ? '1w' : '1M',
         range:['all', '5', '2', '1'].includes(range) ? range : 'all',
         levels:booleanParam('levels'), bands:booleanParam('bands'),
         details:new Set(params.getAll('detail').filter(symbol => /^[A-Z0-9]{1,30}(?:USDT|BTC)$/.test(symbol)))
@@ -377,7 +381,7 @@
     }
     function availableCoins() {
       if (!latestData) return [];
-      const groups = ['matches', 'watchlist', 'key_levels', 'hourly_extremes', 'btc_weekly'];
+      const groups = ['matches', 'watchlist', 'key_levels', 'hourly_extremes', 'btc_weekly', 'btc_resilience'];
       return [...new Set(groups.flatMap(group => (latestData[group] || [])
         .filter(item => !newOnlyToggle.checked || item.is_new).map(item => coinForSymbol(item.symbol))))].sort();
     }
@@ -513,7 +517,7 @@
       return first < 0 ? bars.length - 1 : first;
     }
     function scannedBars(match) {
-      if (match.stage === 'weekly BTC') return match.candles;
+      if (match.stage === 'weekly BTC' || match.stage === 'BTC resilience') return match.candles;
       if (match.stage === 'Extreme high' || match.stage === 'Extreme low') {
         const last = Date.parse(match.candle_time.replace(' UTC', 'Z').replace(' ', 'T'));
         return match.candles.map((bar, index) => ({
@@ -977,6 +981,7 @@
       const level = match.stage === 'monthly key level';
       const extreme = match.stage === 'Extreme high' || match.stage === 'Extreme low';
       const weeklyBtc = match.stage === 'weekly BTC';
+      const resilience = match.stage === 'BTC resilience';
       const watch = !match.stage;
       const shortBase = match.stage === 'short-base breakout';
       const article = el('article', 'result-card');
@@ -994,7 +999,7 @@
       const badgeClass = level ? (match.level_signal === 'Crossed above' ? 'level-up' :
         match.level_signal === 'Crossed below' ? 'level-down' : 'level-near') :
         extreme ? (match.stage === 'Extreme high' ? 'extreme-high' : 'extreme-low') :
-        watch ? 'watch' : shortBase ? 'base' : match.stage === 'breaking out' ? 'breaking' : '';
+        resilience ? 'resilience' : watch ? 'watch' : shortBase ? 'base' : match.stage === 'breaking out' ? 'breaking' : '';
       const badgeLink = (label, className) => {
         const slug = signalGuideSlug(match, label);
         const badge = el(slug ? 'a' : 'span', 'badge ' + className, label);
@@ -1015,9 +1020,13 @@
       }
       if (match.provisional) sub.append(el('span', 'provisional', extreme ? 'Open 1-hour candle' : weeklyBtc ? 'Open week' : 'Open month'));
       head.append(symbol, sub);
+      if (resilience) head.append(
+        el('div', 'strength-context', '+' + match.coin_gain_pct.toFixed(2) + '% USDT · BTC ' + match.btc_change_pct.toFixed(2) + '%'),
+        el('div', 'strength-context', match.strength_hours + '/' + match.window_hours + 'h strength · ' + match.current_streak_hours + 'h streak')
+      );
       main.append(head);
       const preview = el('div', 'mini-chart');
-      const chart = el('canvas'); chart.setAttribute('aria-label', match.symbol + (extreme ? ' 1-hour' : weeklyBtc ? ' weekly' : ' monthly') + ' price history');
+      const chart = el('canvas'); chart.setAttribute('aria-label', match.symbol + (extreme || resilience ? ' 1-hour' : weeklyBtc ? ' weekly' : ' monthly') + ' price history');
       preview.append(chart); main.append(preview);
       const price = el('div', 'price-metric');
       price.append(el('span', 'metric-label', 'Last price'), el('span', 'metric-value', number(match.price)));
@@ -1026,6 +1035,7 @@
       let signalLabel, signalValue;
       if (level) { signalLabel = 'From monthly level'; signalValue = (match.distance_pct > 0 ? '+' : '') + match.distance_pct.toFixed(1) + '%'; }
       else if (extreme) { signalLabel = '1-hour RSI'; signalValue = match.rsi.toFixed(1); }
+      else if (resilience) { signalLabel = 'Strength score'; signalValue = match.strength_score.toFixed(2) + ' %-hours'; }
       else if (weeklyBtc && match.signals.includes('Above upper band')) {
         signalLabel = 'Above upper band'; signalValue = '+' + match.distance_above_band_pct.toFixed(1) + '%';
       }
@@ -1042,7 +1052,7 @@
       actions.append(detailsLink);
       const view = el('button', '', 'View chart');
       view.type = 'button'; view.setAttribute('aria-label', 'Open ' + match.symbol + ' chart');
-      view.onclick = () => { openChart(match, extreme ? '1h' : weeklyBtc ? '1w' : '1M'); writeUrl(); };
+      view.onclick = () => { openChart(match, extreme || resilience ? '1h' : weeklyBtc ? '1w' : '1M'); writeUrl(); };
       actions.append(view); main.append(actions);
       article.append(main);
       const details = el('details', 'card-detail');
@@ -1055,6 +1065,14 @@
         ['MACD as % of price', match.macd_pct.toFixed(3) + '%'],
         ['MACD historical rank', match.macd_percentile.toFixed(1) + 'th percentile'],
         ['Candle opened', match.candle_time], ['Last price', number(match.price)]
+      ] : resilience ? [
+        ['Strength score', match.strength_score.toFixed(2) + ' %-hours'],
+        ['Coin gain (USDT)', '+' + match.coin_gain_pct.toFixed(2) + '%'],
+        ['BTC change (USDT)', match.btc_change_pct.toFixed(2) + '%'],
+        ['Qualifying hourly closes', match.strength_hours + ' / ' + match.window_hours],
+        ['Current strength streak', match.current_streak_hours + ' hours'],
+        ['Window duration', match.window_hours + ' hours'],
+        ['Window start', match.window_start], ['Window end', match.window_end]
       ] : weeklyBtc ? [
         ['Weekly close (BTC)', number(match.price)],
         ['MACD histogram', number(match.macd_histogram)],
@@ -1109,6 +1127,7 @@
       const keyLevels = data.key_levels || [];
       const extremes = data.hourly_extremes || [];
       const btcWeekly = data.btc_weekly || [];
+      const btcResilience = data.btc_resilience || [];
       const triangles = matches.filter(m => m.stage !== 'short-base breakout').length;
       const bases = matches.length - triangles;
       const health = el('div', 'status-health');
@@ -1117,7 +1136,7 @@
         el('span', 'status-time', data.updated_at ? 'Updated ' + new Date(data.updated_at).toLocaleString() : 'Awaiting first scan'));
       if (data.last_error) status.append(el('span', 'error', data.last_error));
       summary.replaceChildren();
-      for (const [value, label] of [[triangles, 'Triangle matches'], [bases, 'Short-base breakouts'], [keyLevels.length, 'Monthly key levels'], [watchlist.length, 'Early MACD watchlist'], [extremes.length, '1-hour extremes'], [btcWeekly.length, 'BTC weekly pairs']]) {
+      for (const [value, label] of [[triangles, 'Triangle matches'], [bases, 'Short-base breakouts'], [keyLevels.length, 'Monthly key levels'], [watchlist.length, 'Early MACD watchlist'], [extremes.length, '1-hour extremes'], [btcWeekly.length, 'BTC weekly pairs'], [btcResilience.length, 'BTC resilience']]) {
         const item = el('div', 'summary-item'); item.append(el('strong', '', String(value)), el('span', '', label)); summary.append(item);
       }
       scanButton.disabled = data.status === 'Scanning';
@@ -1130,7 +1149,7 @@
         (!newOnlyToggle.checked || match.is_new);
       const counts = {patterns:matches.filter(included).length, key_levels:keyLevels.filter(included).length,
         watchlist:watchlist.filter(included).length, hourly_extremes:extremes.filter(included).length,
-        btc_weekly:btcWeekly.filter(included).length};
+        btc_weekly:btcWeekly.filter(included).length, btc_resilience:btcResilience.filter(included).length};
       document.querySelectorAll('[data-view]').forEach(button => {
         const count = button.querySelector('.tab-count') || el('span', 'tab-count');
         count.textContent = String(counts[button.dataset.view]);
@@ -1139,14 +1158,15 @@
       document.querySelector('#pattern-subfilter').hidden = view !== 'patterns';
       document.querySelector('#level-subfilter').hidden = view !== 'key_levels';
       document.querySelector('#btc-subfilter').hidden = view !== 'btc_weekly';
+      document.querySelector('#resilience-description').hidden = view !== 'btc_resilience';
       cards.setAttribute('aria-labelledby', view === 'patterns' ? 'patterns-tab' :
         view === 'key_levels' ? 'levels-tab' : view === 'hourly_extremes' ? 'extremes-tab' :
-        view === 'btc_weekly' ? 'btc-tab' : 'macd-tab');
+        view === 'btc_weekly' ? 'btc-tab' : view === 'btc_resilience' ? 'resilience-tab' : 'macd-tab');
       const patternFilter = document.querySelector('#pattern-filter').value;
       const levelFilter = document.querySelector('#level-filter').value;
       const btcFilter = document.querySelector('#btc-filter').value;
       const categoryResults = view === 'btc_weekly' ? btcWeekly.filter(m => btcFilter === 'all' || m.signals.includes(btcFilter)) :
-        view === 'hourly_extremes' ? extremes : view === 'watchlist' ? watchlist : view === 'key_levels' ?
+        view === 'btc_resilience' ? btcResilience : view === 'hourly_extremes' ? extremes : view === 'watchlist' ? watchlist : view === 'key_levels' ?
         keyLevels.filter(m => levelFilter === 'all' || m.level_signal === levelFilter) :
         matches.filter(m => patternFilter === 'all' || m.stage === patternFilter);
       const visible = categoryResults.filter(included);
@@ -1171,13 +1191,14 @@
             view === 'patterns' && patternFilter !== 'all' ? 'No ' + patternFilter + ' signals in this scan.' :
             view === 'btc_weekly' && btcFilter !== 'all' ? 'No BTC pairs have this weekly signal in the latest scan.' :
             view === 'btc_weekly' ? 'No BTC pairs meet either weekly signal threshold in this scan.' :
+            view === 'btc_resilience' ? 'No coins gained USDT while BTC lost USDT over the latest 24 completed hours.' :
             view === 'watchlist' ? 'No early MACD signals in this scan.' :
             view === 'hourly_extremes' ? 'No symbols meet both 1-hour MACD and RSI extreme thresholds in this scan.' : 'No signals in this view.';
           cards.append(el('p', 'empty', emptyMessage));
         }
         render.signature = signature;
       }
-      const allEntries = matches.concat(watchlist, keyLevels, extremes, btcWeekly);
+      const allEntries = matches.concat(watchlist, keyLevels, extremes, btcWeekly, btcResilience);
       const identity = m => m.symbol + ':' + (m.candle_time || m.week || m.month) + ':' + (m.signals?.join('|') || m.level_signal || m.stage || 'early MACD') +
         (m.level_price ? ':' + m.level_price : '');
       const ids = new Set(allEntries.map(identity));
@@ -1212,7 +1233,7 @@
       const groups = {
         patterns:latestData.matches || [], key_levels:latestData.key_levels || [],
         watchlist:latestData.watchlist || [], hourly_extremes:latestData.hourly_extremes || [],
-        btc_weekly:latestData.btc_weekly || []
+        btc_weekly:latestData.btc_weekly || [], btc_resilience:latestData.btc_resilience || []
       };
       const match = route.chart && (groups[view].find(item => item.symbol === route.chart) ||
         Object.values(groups).flat().find(item => item.symbol === route.chart));

@@ -71,6 +71,18 @@ const signalGuides = {
     example: 'An RSI of 84 with positive MACD at the 97th percentile meets the momentum part of an extreme-high result.',
     note: 'An extreme is a description of the current hour, not a reversal or continuation forecast. The open hour can still change.'
   },
+  'btc-resilience': {
+    title: 'BTC resilience', category: 'USDT strength · 24 hours',
+    summary: 'A coin has gained value in USDT while Bitcoin has lost value in USDT over the same 24 completed hours.',
+    meaning: 'Both prices are compared with their closes at the start of the window. At each later hourly close, strength counts only when the coin is above its starting price and BTC is below its starting price. The strength score adds the coin’s percentage gain at those qualifying closes, with one hour of weight per close.',
+    checks: [
+      'The latest completed hour must still show a positive coin return and a negative BTC return from the same window-start prices.',
+      'Both markets must have all 25 matching hourly closes spanning the 24-hour window. Open candles, stale data and gaps are excluded.',
+      'Results rank by strength score in %-hours. Qualifying hours count all matching closes; the current streak counts consecutive qualifying closes ending now.'
+    ],
+    example: 'A coin holding a 2% gain for 12 qualifying hours scores 24 %-hours; holding it for 24 qualifying hours scores 48. A 4% gain held for 12 qualifying hours also scores 48.',
+    note: 'Returns use a fixed window-start baseline, so the coin need not rise and BTC need not fall in every individual hour. A coin losing less than BTC does not qualify. The score has no fixed maximum and is not a probability of profit.'
+  },
   'weekly-macd': {
     title: 'Weekly MACD turning green', category: 'BTC pair',
     summary: 'The weekly MACD histogram has just moved from zero or below to above zero.',
@@ -98,6 +110,7 @@ const signalGuides = {
 };
 
 function signalGuideSlug(match, label) {
+  if (match.stage === 'BTC resilience') return 'btc-resilience';
   if (match.stage === 'weekly BTC')
     return label === 'MACD turning green' ? 'weekly-macd' :
       label === 'Above upper band' ? 'weekly-upper-band' : null;

@@ -70,6 +70,13 @@ class ChartRouteTests(unittest.TestCase):
         fetch.assert_called_once_with("LEVELUSDT", "1M")
         handler.send_response.assert_called_once_with(200)
 
+    def test_resilience_only_result_can_open_hourly_chart(self):
+        with patch.dict(app.state, {"btc_resilience": [{"symbol": "STRONGUSDT"}]}), \
+             patch.object(app, "historical_candles", return_value=[]) as fetch:
+            handler = self.request("symbol=STRONGUSDT&interval=1h")
+        fetch.assert_called_once_with("STRONGUSDT", "1h", max_bars=1000)
+        handler.send_response.assert_called_once_with(200)
+
     def test_hourly_result_can_open_hourly_chart(self):
         with patch.object(app, "historical_candles", return_value=[]) as fetch:
             handler = self.request("symbol=HOURUSDT&interval=1h")
@@ -187,6 +194,15 @@ class CoinPageTests(unittest.TestCase):
         handler.send_error = Mock()
         handler.do_GET()
         return handler
+
+    def test_coin_api_includes_resilience_only_signal(self):
+        match = {"symbol": "STRONGUSDT", "stage": "BTC resilience", "strength_score": 48}
+        with patch.dict(app.state, {**{group: [] for group in app.RESULT_GROUPS},
+                                    "btc_resilience": [match]}):
+            handler = self.request("/api/coin?symbol=STRONGUSDT")
+        handler.send_response.assert_called_once_with(200)
+        self.assertEqual(json.loads(handler.wfile.getvalue())["signals"],
+                         [{"group": "btc_resilience", "match": match}])
 
     def test_coin_api_combines_every_signal_for_pair(self):
         with app.lock:

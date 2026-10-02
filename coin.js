@@ -33,6 +33,7 @@ function dateTime(value) {
 function signalTitle(group, match) {
   if (group === 'btc_weekly') return 'Weekly BTC signals';
   if (group === 'hourly_extremes') return '1-hour extreme';
+  if (group === 'btc_resilience') return 'BTC resilience';
   if (group === 'key_levels') return 'Monthly key level';
   if (group === 'watchlist') return 'Monthly MACD watch';
   return match.stage === 'short-base breakout' ? 'Monthly pattern' : 'Monthly triangle';
@@ -49,13 +50,19 @@ const labels = {
   support_touches:'Support tests', lower_highs:'Lower highs', window_months:'Pattern window',
   months_to_apex:'Estimated apex', trend_start_price:'Trend start price',
   base_months:'Base duration', score:'Triangle fit score',
-  month:'Month opened', week:'Week opened', candle_time:'Candle opened', price:'Last price'
+  month:'Month opened', week:'Week opened', candle_time:'Candle opened', price:'Last price',
+  strength_score:'Strength score', coin_gain_pct:'Coin gain (USDT)', btc_change_pct:'BTC change (USDT)',
+  strength_hours:'Qualifying hourly closes', current_streak_hours:'Current strength streak',
+  window_hours:'Window duration', window_start:'Window start', window_end:'Window end'
 };
-const percentKeys = new Set(['macd_pct', 'improvement_pct', 'distance_above_band_pct', 'distance_pct', 'distance_to_resistance_pct']);
+const percentKeys = new Set(['macd_pct', 'improvement_pct', 'distance_above_band_pct', 'distance_pct', 'distance_to_resistance_pct', 'coin_gain_pct', 'btc_change_pct']);
 const monthKeys = new Set(['months_to_zero_at_recent_pace', 'months_to_apex', 'base_months', 'window_months']);
 const rawKeys = new Set(['symbol', 'stage', 'reason', 'signals', 'candles', 'provisional', 'is_new', 'trend_start_index']);
 function metricValue(key, value) {
   if (typeof value !== 'number') return String(value);
+  if (key === 'strength_score') return value.toFixed(2) + ' %-hours';
+  if (key === 'current_streak_hours' || key === 'window_hours') return num(value) + (value === 1 ? ' hour' : ' hours');
+  if (key === 'coin_gain_pct' || key === 'btc_change_pct') return (value > 0 ? '+' : '') + value.toFixed(2) + '%';
   if (percentKeys.has(key)) return (value > 0 ? '+' : '') + value.toFixed(key === 'macd_pct' ? 3 : 1) + '%';
   if (monthKeys.has(key)) return num(value) + (value === 1 ? ' month' : ' months');
   if (key === 'score') return value.toFixed(1) + ' / 100';
@@ -341,8 +348,9 @@ async function refresh() {
       if (!chartInitialized) {
         const firstGroup = data.signals[0].group;
         chartView = ({matches:'/patterns', watchlist:'/macd-watch', key_levels:'/key-levels',
-          hourly_extremes:'/hourly-extremes', btc_weekly:'/btc-weekly'})[firstGroup];
-        interval = firstGroup === 'btc_weekly' ? '1w' : firstGroup === 'hourly_extremes' ? '1h' : '1M';
+          hourly_extremes:'/hourly-extremes', btc_weekly:'/btc-weekly', btc_resilience:'/btc-resilience'})[firstGroup];
+        interval = firstGroup === 'btc_weekly' ? '1w' :
+          firstGroup === 'hourly_extremes' || firstGroup === 'btc_resilience' ? '1h' : '1M';
         document.querySelector('#quote-options').hidden = false;
         chartInitialized = true;
         loadChart();

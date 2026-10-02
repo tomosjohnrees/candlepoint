@@ -12,7 +12,8 @@ test('each signal label leads to a dedicated guide', () => {
     [{stage:'Extreme high'}, 'Extreme high', 'hourly-extremes'],
     [{stage:'Extreme low'}, 'Extreme low', 'hourly-extremes'],
     [{stage:'weekly BTC'}, 'MACD turning green', 'weekly-macd'],
-    [{stage:'weekly BTC'}, 'Above upper band', 'weekly-upper-band']
+    [{stage:'weekly BTC'}, 'Above upper band', 'weekly-upper-band'],
+    [{stage:'BTC resilience'}, 'BTC resilience', 'btc-resilience']
   ];
   for (const [match, label, slug] of cases) {
     assert.equal(signalGuideSlug(match, label), slug);
